@@ -46,6 +46,13 @@ enum RazonPuntos {
   AJUSTE_ADMIN
   LOGRO_OBJETIVO
   SUBIDA_NIVEL
+  LIKE_RECIBIDO
+}
+
+enum EstadoReporte {
+  PENDIENTE
+  APROBADO
+  DESESTIMADO
 }
 
 enum CriterioBadge {
@@ -74,6 +81,9 @@ enum TipoNotificacion {
   SUBIDA_NIVEL
   OBJETIVO_CUMPLIDO
   SISTEMA
+  COMENTARIO_LIKE
+  COMENTARIO_RESPUESTA
+  COMENTARIO_REPORTADO
 }
 
 // ─── Modelos ──────────────────────────────────────────────────────────────────
@@ -99,16 +109,20 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  puesto         Puesto?             @relation(fields: [puestoId], references: [id], onDelete: SetNull)
-  area           Area?               @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  progresos      ProgresoLeccion[]
-  intentosQuiz   IntentoQuiz[]
-  badges         UserBadge[]
-  transacciones  TransaccionPuntos[]
-  certificados   Certificado[]
-  metricas       MetricaDesempeno[]
-  notificaciones Notificacion[]
-  notas          LeccionNota[]
+  puesto            Puesto?             @relation(fields: [puestoId], references: [id], onDelete: SetNull)
+  area              Area?               @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  progresos         ProgresoLeccion[]
+  intentosQuiz      IntentoQuiz[]
+  badges            UserBadge[]
+  transacciones     TransaccionPuntos[]
+  certificados      Certificado[]
+  metricas          MetricaDesempeno[]
+  notificaciones    Notificacion[]
+  notas             LeccionNota[]
+  comentarios       Comentario[]
+  comentarioLikes   ComentarioLike[]
+  reportesHechos    ReporteComentario[] @relation("Reportes")
+  reportesResueltos ReporteComentario[] @relation("ResolucionReportes")
 
   @@index([email])
   @@index([areaId])
@@ -201,10 +215,12 @@ model Curso {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  area         Area?              @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  modulos      Modulo[]
-  certificados Certificado[]
-  rutas        RutaCarreraCurso[]
+  area                Area?              @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  modulos             Modulo[]
+  certificados        Certificado[]
+  rutas               RutaCarreraCurso[]
+  relacionadosOrigen  CursoRelacionado[] @relation("CursosRelacionadosOrigen")
+  relacionadosDestino CursoRelacionado[] @relation("CursosRelacionadosDestino")
 
   @@index([slug])
   @@index([areaId])
@@ -239,11 +255,12 @@ model Leccion {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  modulo    Modulo            @relation(fields: [moduloId], references: [id], onDelete: Cascade)
-  quiz      Quiz?
-  recursos  RecursoLeccion[]
-  progresos ProgresoLeccion[]
-  notas     LeccionNota[]
+  modulo      Modulo            @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  quiz        Quiz?
+  recursos    RecursoLeccion[]
+  progresos   ProgresoLeccion[]
+  notas       LeccionNota[]
+  comentarios Comentario[]
 
   @@unique([moduloId, slug])
   @@index([moduloId])
@@ -428,4 +445,72 @@ model Notificacion {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, leida, fecha])
+}
+
+model Comentario {
+  id                String    @id @default(cuid())
+  userId            String
+  leccionId         String
+  contenido         String    @db.Text
+  comentarioPadreId String?
+  editado           Boolean   @default(false)
+  fechaEdicion      DateTime?
+  reportado         Boolean   @default(false)
+  oculto            Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leccion    Leccion             @relation(fields: [leccionId], references: [id], onDelete: Cascade)
+  padre      Comentario?         @relation("Respuestas", fields: [comentarioPadreId], references: [id], onDelete: Cascade)
+  respuestas Comentario[]        @relation("Respuestas")
+  likes      ComentarioLike[]
+  reportes   ReporteComentario[]
+
+  @@index([leccionId, createdAt])
+  @@index([userId])
+  @@index([comentarioPadreId])
+}
+
+model ComentarioLike {
+  userId       String
+  comentarioId String
+  fecha        DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comentario Comentario @relation(fields: [comentarioId], references: [id], onDelete: Cascade)
+
+  @@id([userId, comentarioId])
+  @@index([comentarioId])
+}
+
+model ReporteComentario {
+  id            String        @id @default(cuid())
+  comentarioId  String
+  reportadorId  String
+  razon         String        @db.Text
+  estado        EstadoReporte @default(PENDIENTE)
+  createdAt     DateTime      @default(now())
+  resueltoEn    DateTime?
+  resueltoPorId String?
+
+  comentario  Comentario @relation(fields: [comentarioId], references: [id], onDelete: Cascade)
+  reportador  User       @relation("Reportes", fields: [reportadorId], references: [id])
+  resueltoPor User?      @relation("ResolucionReportes", fields: [resueltoPorId], references: [id])
+
+  @@index([estado])
+  @@index([comentarioId])
+}
+
+model CursoRelacionado {
+  cursoOrigenId  String
+  cursoDestinoId String
+  orden          Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  cursoOrigen  Curso @relation("CursosRelacionadosOrigen", fields: [cursoOrigenId], references: [id], onDelete: Cascade)
+  cursoDestino Curso @relation("CursosRelacionadosDestino", fields: [cursoDestinoId], references: [id], onDelete: Cascade)
+
+  @@id([cursoOrigenId, cursoDestinoId])
+  @@index([cursoOrigenId, orden])
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -71,18 +70,17 @@ type SidebarUser = {
   puesto?: { nombre: string } | null;
 };
 
-export function DashboardSidebar({ user }: { user: SidebarUser }) {
+export function DashboardSidebar({
+  user,
+  collapsed,
+  onToggle,
+}: {
+  user: SidebarUser;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
-  });
-
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("sidebar-collapsed", String(next));
-  };
+  const toggle = onToggle;
 
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
 

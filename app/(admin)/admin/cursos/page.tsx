@@ -45,6 +45,7 @@ export default async function AdminCursosPage() {
                 <th className="px-4 py-3 text-right font-medium">Lecciones</th>
                 <th className="px-4 py-3 text-right font-medium">Certificados</th>
                 <th className="px-4 py-3 text-center font-medium">Publicado</th>
+                <th className="px-4 py-3 text-right font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -69,6 +70,15 @@ export default async function AdminCursosPage() {
                     <td className="px-4 py-3 text-right">{c._count.certificados}</td>
                     <td className="px-4 py-3 text-center">
                       <CursoPublicarSwitch cursoId={c.id} publicado={c.publicado} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        render={<Link href={`/admin/cursos/${c.id}/relacionados`} />}
+                      >
+                        Relacionados
+                      </Button>
                     </td>
                   </tr>
                 );

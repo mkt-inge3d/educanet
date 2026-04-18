@@ -13,6 +13,7 @@ import {
   Building,
   ArrowLeft,
   Shield,
+  Flag,
 } from "lucide-react";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,12 @@ const secciones = [
     items: [
       { label: "Usuarios", href: "/admin/usuarios", icon: Users, check: puedeGestionarUsuarios },
       { label: "Metricas", href: "/admin/metricas", icon: TrendingUp, check: puedeGestionarMetricas },
+    ],
+  },
+  {
+    title: "Comunidad",
+    items: [
+      { label: "Moderacion", href: "/admin/moderacion", icon: Flag, check: () => true },
     ],
   },
   {

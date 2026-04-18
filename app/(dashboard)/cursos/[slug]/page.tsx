@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { obtenerCursoDetalle, obtenerCursosSimilares } from "@/lib/cursos/queries";
 import { CursoHero } from "@/components/curso/detalle/CursoHero";
 import { CursoSidebar } from "@/components/curso/detalle/CursoSidebar";
-import { CursoContenido } from "@/components/curso/detalle/CursoContenido";
+import { TimelineContenido } from "@/components/curso/detalle/timeline/TimelineContenido";
 import { CursoSobreElCurso } from "@/components/curso/detalle/CursoSobreElCurso";
 import { CursoRecursos } from "@/components/curso/detalle/CursoRecursos";
 import { CursosSimilares } from "@/components/curso/detalle/CursosSimilares";
@@ -72,11 +72,7 @@ export default async function CursoDetallePage({
             </TabsList>
 
             <TabsContent value="contenido" className="mt-4">
-              <CursoContenido
-                modulos={curso.modulos}
-                cursoSlug={curso.slug}
-                estado={curso.estado}
-              />
+              <TimelineContenido curso={curso} />
             </TabsContent>
 
             <TabsContent value="sobre" className="mt-4">

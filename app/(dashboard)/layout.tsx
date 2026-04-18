@@ -1,7 +1,6 @@
+import { cookies } from "next/headers";
 import { requireAuth } from "@/lib/auth";
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { HeartbeatTracker } from "@/components/dashboard/HeartbeatTracker";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 export default async function DashboardLayout({
   children,
@@ -9,6 +8,8 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAuth();
+  const cookieStore = await cookies();
+  const sidebarCollapsed = cookieStore.get("sidebar-collapsed")?.value === "true";
 
   const sidebarUser = {
     nombre: user.nombre,
@@ -24,14 +25,12 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex min-h-full">
-      <DashboardSidebar user={sidebarUser} />
-
-      <div className="flex flex-1 flex-col md:pl-[260px]">
-        <DashboardHeader user={headerUser} />
-        <HeartbeatTracker />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
-      </div>
-    </div>
+    <DashboardShell
+      sidebarUser={sidebarUser}
+      headerUser={headerUser}
+      initialCollapsed={sidebarCollapsed}
+    >
+      {children}
+    </DashboardShell>
   );
 }

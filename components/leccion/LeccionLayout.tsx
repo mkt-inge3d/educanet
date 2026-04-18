@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { PanelLeft, PanelRight, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { LeccionSidebarIzq } from "./LeccionSidebarIzq";
-import { LeccionPanelDer } from "./LeccionPanelDer";
 import { LeccionVideo } from "./LeccionVideo";
 import { LeccionLectura } from "./LeccionLectura";
 import { LeccionQuiz } from "./quiz/LeccionQuiz";
 import { LeccionNavegacion } from "./LeccionNavegacion";
+import { LeccionCompletadaBanner } from "./LeccionCompletadaBanner";
 import type { LeccionDetalleCompleta, ModuloConLeccionesYProgreso, LeccionAdyacente } from "@/types/lecciones";
 
 export function LeccionLayout({
@@ -19,12 +19,16 @@ export function LeccionLayout({
   cursoSlug,
   anterior,
   siguiente,
+  seccionesInferiores,
+  panelDerecho,
 }: {
   leccion: LeccionDetalleCompleta;
   estructura: ModuloConLeccionesYProgreso[];
   cursoSlug: string;
   anterior: LeccionAdyacente | null;
   siguiente: LeccionAdyacente | null;
+  seccionesInferiores?: ReactNode;
+  panelDerecho: ReactNode;
 }) {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
@@ -41,18 +45,13 @@ export function LeccionLayout({
       cursoSlug={cursoSlug}
       cursoTitulo={leccion.curso.titulo}
       leccionActualSlug={leccion.slug}
+      leccionActualId={leccion.id}
       totalLecciones={totalLecciones}
       completadas={completadas}
     />
   );
 
-  const panelContent = (
-    <LeccionPanelDer
-      leccionId={leccion.id}
-      notas={leccion.notas}
-      recursos={leccion.recursos}
-    />
-  );
+  const panelContent = panelDerecho;
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
@@ -68,7 +67,7 @@ export function LeccionLayout({
         </SheetContent>
       </Sheet>
       <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        <SheetContent side="right" className="w-80 p-0">
+        <SheetContent side="right" className="w-[380px] p-0 sm:max-w-[380px]">
           {panelContent}
         </SheetContent>
       </Sheet>
@@ -113,6 +112,11 @@ export function LeccionLayout({
         {/* Lesson content */}
         <div className="flex-1 p-4 md:p-6">
           <div className="mx-auto max-w-4xl space-y-6">
+            <LeccionCompletadaBanner
+              completada={leccion.completada}
+              puntos={leccion.puntosRecompensa}
+            />
+
             <div>
               <h1 className="text-xl font-bold sm:text-2xl">{leccion.titulo}</h1>
               {leccion.descripcion && (
@@ -149,6 +153,12 @@ export function LeccionLayout({
                 mejorIntento={leccion.mejorIntentoQuiz}
               />
             )}
+
+            {seccionesInferiores && (
+              <div className="mt-8 space-y-10 border-t pt-8">
+                {seccionesInferiores}
+              </div>
+            )}
           </div>
         </div>
 
@@ -164,7 +174,7 @@ export function LeccionLayout({
       </div>
 
       {/* Desktop right panel */}
-      <aside className="hidden w-80 shrink-0 border-l bg-card lg:block overflow-y-auto">
+      <aside className="hidden w-[420px] shrink-0 border-l bg-card lg:flex lg:flex-col">
         {panelContent}
       </aside>
     </div>

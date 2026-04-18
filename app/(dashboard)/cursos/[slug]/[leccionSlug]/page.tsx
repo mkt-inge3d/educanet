@@ -6,6 +6,9 @@ import {
   obtenerLeccionesAdyacentes,
 } from "@/lib/lecciones/queries";
 import { LeccionLayout } from "@/components/leccion/LeccionLayout";
+import { LeccionPanelDer } from "@/components/leccion/LeccionPanelDer";
+import { RecursosDestacados } from "@/components/leccion/recursos/RecursosDestacados";
+import { CursosRelacionados } from "@/components/leccion/CursosRelacionados";
 
 export async function generateMetadata({
   params,
@@ -41,6 +44,8 @@ export default async function LeccionPage({
     leccion.orden
   );
 
+  const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+
   return (
     <LeccionLayout
       leccion={leccion}
@@ -48,6 +53,20 @@ export default async function LeccionPage({
       cursoSlug={slug}
       anterior={nav.anterior}
       siguiente={nav.siguiente}
+      panelDerecho={
+        <LeccionPanelDer
+          leccionId={leccion.id}
+          notas={leccion.notas}
+          currentUserId={user.id}
+          esAdmin={esAdmin}
+        />
+      }
+      seccionesInferiores={
+        <>
+          <RecursosDestacados recursos={leccion.recursos} />
+          <CursosRelacionados cursoId={leccion.curso.id} userId={user.id} />
+        </>
+      }
     />
   );
 }

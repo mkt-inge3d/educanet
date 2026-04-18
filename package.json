@@ -14,7 +14,10 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:migrate": "prisma migrate dev",
-    "db:seed-post-auth": "tsx prisma/seed-post-auth.ts"
+    "db:seed-post-auth": "tsx prisma/seed-post-auth.ts",
+    "db:seed-comentarios": "tsx prisma/seed-comentarios.ts",
+    "db:seed-planeamiento": "tsx prisma/seed-curso-planeamiento.ts",
+    "db:seed-cx": "tsx prisma/seed-curso-cx.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
@@ -77,5 +80,8 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
