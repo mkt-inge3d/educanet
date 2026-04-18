@@ -16,6 +16,7 @@ export default async function DashboardLayout({
     nombre: user.nombre,
     apellido: user.apellido,
     email: user.email,
+    rol: user.rol,
     puesto: user.puesto,
   };
 

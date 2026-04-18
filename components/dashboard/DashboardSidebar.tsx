@@ -38,6 +38,7 @@ type NavItem = {
   label: string;
   href: string;
   icon: React.ElementType;
+  soloJefe?: boolean;
 };
 
 const sections: { title: string; items: NavItem[] }[] = [
@@ -53,7 +54,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { label: "Mi progreso", href: "/mi-progreso", icon: Target },
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
       { label: "Compromisos", href: "/compromisos", icon: CheckSquare },
-      { label: "Mi equipo", href: "/mi-equipo", icon: Users },
+      { label: "Mi equipo", href: "/mi-equipo", icon: Users, soloJefe: true },
       { label: "Mi carrera", href: "/mi-carrera", icon: TrendingUp },
       { label: "Desempeno", href: "/desempeno", icon: LineChart },
     ],
@@ -75,6 +76,7 @@ type SidebarUser = {
   nombre: string;
   apellido: string;
   email: string;
+  rol?: string;
   puesto?: { nombre: string } | null;
 };
 
@@ -91,6 +93,15 @@ export function DashboardSidebar({
   const toggle = onToggle;
 
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
+
+  const esJefe = user.puesto?.nombre?.startsWith("Jefe") ?? false;
+  const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+  const puedeVerJefe = esJefe || esAdmin;
+
+  const seccionesFiltradas = sections.map((s) => ({
+    ...s,
+    items: s.items.filter((i) => !i.soloJefe || puedeVerJefe),
+  }));
 
   return (
     <TooltipProvider>
@@ -129,7 +140,7 @@ export function DashboardSidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {sections.map((section, si) => (
+          {seccionesFiltradas.map((section, si) => (
             <div key={section.title} className={si > 0 ? "mt-4" : ""}>
               <AnimatePresence>
                 {!collapsed && (

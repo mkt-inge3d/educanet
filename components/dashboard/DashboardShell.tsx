@@ -10,6 +10,7 @@ type SidebarUser = {
   nombre: string;
   apellido: string;
   email: string;
+  rol?: string;
   puesto?: { nombre: string } | null;
 };
 
