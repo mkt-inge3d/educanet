@@ -1,11 +1,15 @@
 import { requireAuth } from "@/lib/auth";
 import { mesActual } from "@/lib/gamificacion/periodo";
 import { obtenerProgresoMes } from "@/lib/kpis/mi-progreso-queries";
+import { puedeResponderEncuesta } from "@/lib/encuestas/queries";
+import { prisma } from "@/lib/prisma";
 import { RangoActualDestacado } from "@/components/mi-progreso/RangoActualDestacado";
 import { BreakdownXPFuentes } from "@/components/mi-progreso/BreakdownXPFuentes";
 import { CumplimientoKPIsResumen } from "@/components/mi-progreso/CumplimientoKPIsResumen";
 import { AccionesSugeridas } from "@/components/mi-progreso/AccionesSugeridas";
 import { MisionesSemana } from "@/components/mi-progreso/MisionesSemana";
+import { CardEncuestaSemanal } from "@/components/encuestas/CardEncuestaSemanal";
+import { SeccionBonusEquipo } from "@/components/piloto/SeccionBonusEquipo";
 
 const MESES_ES = [
   "enero",
@@ -28,7 +32,16 @@ export default async function MiProgresoPage() {
   const user = await requireAuth();
   const { mes, anio } = mesActual();
 
-  const progreso = await obtenerProgresoMes(user.id, mes, anio);
+  const [progreso, encuestaCheck, kpisUser] = await Promise.all([
+    obtenerProgresoMes(user.id, mes, anio),
+    puedeResponderEncuesta(user.id),
+    prisma.kpiAsignacion.findMany({
+      where: { userId: user.id, periodoMes: mes, periodoAnio: anio },
+      select: { definicion: { select: { nombre: true } } },
+    }),
+  ]);
+
+  const nombresKpis = kpisUser.map((k) => k.definicion.nombre);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -44,6 +57,12 @@ export default async function MiProgresoPage() {
         </p>
       </div>
 
+      <CardEncuestaSemanal
+        puede={encuestaCheck.puede}
+        yaRespondida={encuestaCheck.yaRespondida ?? false}
+        nombresKpis={nombresKpis}
+      />
+
       <RangoActualDestacado
         rango={progreso.rangoActual}
         puntos={progreso.puntosTotales}
@@ -52,6 +71,10 @@ export default async function MiProgresoPage() {
         porcentajeAlSiguiente={progreso.porcentajeAlSiguiente}
         diasRestantes={progreso.diasRestantes}
       />
+
+      {user.areaId && (
+        <SeccionBonusEquipo areaId={user.areaId} mes={mes} anio={anio} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BreakdownXPFuentes

@@ -529,3 +529,29 @@ CREATE POLICY "compromiso_delete_propio_pendiente" ON public."Compromiso"
     (auth.uid()::text = "userId" AND estado = 'PENDIENTE')
     OR public.current_user_rol() IN ('ADMIN', 'RRHH')
   );
+
+-- Piloto + Encuesta semanal (Prompt 16C)
+ALTER TABLE public."ConfiguracionPiloto" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."EncuestaSemanal" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "config_piloto_select_all" ON public."ConfiguracionPiloto"
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "config_piloto_admin" ON public."ConfiguracionPiloto"
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('ADMIN', 'RRHH'));
+
+CREATE POLICY "encuesta_select_propio_o_admin" ON public."EncuestaSemanal"
+  FOR SELECT TO authenticated
+  USING (
+    auth.uid()::text = "userId"
+    OR public.current_user_rol() IN ('ADMIN', 'RRHH')
+  );
+
+CREATE POLICY "encuesta_insert_propio" ON public."EncuestaSemanal"
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid()::text = "userId");
+
+CREATE POLICY "encuesta_update_propio" ON public."EncuestaSemanal"
+  FOR UPDATE TO authenticated
+  USING (auth.uid()::text = "userId");

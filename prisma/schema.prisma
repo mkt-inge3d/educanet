@@ -200,11 +200,12 @@ model User {
   rangosMensuales     RangoMensual[]
   eventosGamificacion EventoGamificacion[]
 
-  reconocimientosDados     Reconocimiento[] @relation("ReconocimientosDados")
-  reconocimientosRecibidos Reconocimiento[] @relation("ReconocimientosRecibidos")
+  reconocimientosDados     Reconocimiento[]  @relation("ReconocimientosDados")
+  reconocimientosRecibidos Reconocimiento[]  @relation("ReconocimientosRecibidos")
   misiones                 Mision[]
   compromisos              Compromiso[]
-  validacionesCompromisos  Compromiso[]     @relation("ValidacionesCompromisos")
+  validacionesCompromisos  Compromiso[]      @relation("ValidacionesCompromisos")
+  encuestasSemanal         EncuestaSemanal[]
 
   @@index([email])
   @@index([areaId])
@@ -218,9 +219,10 @@ model Area {
   color       String
   icono       String
 
-  puestos Puesto[]
-  cursos  Curso[]
-  users   User[]
+  puestos             Puesto[]
+  cursos              Curso[]
+  users               User[]
+  configuracionPiloto ConfiguracionPiloto?
 }
 
 model Puesto {
@@ -799,4 +801,45 @@ model Compromiso {
   @@index([userId, estado])
   @@index([userId, anio, semanaDelAnio])
   @@index([fechaLimite])
+}
+
+model ConfiguracionPiloto {
+  id                    String    @id @default(cuid())
+  areaId                String    @unique
+  activo                Boolean   @default(true)
+  fechaInicio           DateTime
+  fechaFin              DateTime
+  metaCumplimientoKpis  Float     @default(80)
+  bonusEquipoPuntos     Int       @default(150)
+  bonusYaOtorgadoMes    Int?
+  bonusYaOtorgadoAnio   Int?
+  anonimizarParaJefe    Boolean   @default(true)
+  fechaFinAnonimizacion DateTime?
+  mostrarBannerPiloto   Boolean   @default(true)
+  fechaFinBanner        DateTime?
+  notas                 String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  area Area @relation(fields: [areaId], references: [id], onDelete: Cascade)
+}
+
+model EncuestaSemanal {
+  id                String   @id @default(cuid())
+  userId            String
+  semanaDelAnio     Int
+  anio              Int
+  justiciaKpis      Int
+  motivacionSistema Int
+  claridadProgreso  Int
+  comentario        String?  @db.Text
+  kpiMasJusto       String?
+  kpiMenosJusto     String?
+  puntosOtorgados   Int      @default(20)
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, semanaDelAnio, anio])
+  @@index([anio, semanaDelAnio])
 }

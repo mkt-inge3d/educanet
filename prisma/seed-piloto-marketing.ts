@@ -608,6 +608,74 @@ async function main() {
   }
   console.log(`  Compromisos demo: ${comprCreados}`);
 
+  // ─── Configuracion del piloto ────────────────────────────────────────
+  const finPiloto = new Date();
+  finPiloto.setDate(finPiloto.getDate() + 30);
+  const finBanner = new Date();
+  finBanner.setDate(finBanner.getDate() + 14);
+  const finAnon = new Date();
+  finAnon.setDate(finAnon.getDate() + 28);
+
+  await prisma.configuracionPiloto.upsert({
+    where: { areaId: marketing.id },
+    create: {
+      areaId: marketing.id,
+      activo: true,
+      fechaInicio: new Date(),
+      fechaFin: finPiloto,
+      metaCumplimientoKpis: 80,
+      bonusEquipoPuntos: 150,
+      anonimizarParaJefe: true,
+      fechaFinAnonimizacion: finAnon,
+      mostrarBannerPiloto: true,
+      fechaFinBanner: finBanner,
+      notas: "Piloto de 1 mes del sistema de gamificacion — equipo Marketing",
+    },
+    update: {},
+  });
+  console.log(`  Configuracion piloto: 1 area (Marketing)`);
+
+  // ─── Encuestas demo ──────────────────────────────────────────────────
+  await prisma.encuestaSemanal.deleteMany({
+    where: { userId: { in: userIds } },
+  });
+
+  const encuestasDemo: Array<[number, number, number, number, number, string | null, string | null, string | null]> = [
+    // user-index, semana-offset, justicia, motivacion, claridad, kpiJusto, kpiInjusto, comentario
+    [0, 0, 4, 4, 4, "Cumplimiento del plan editorial", null, null],
+    [1, 0, 3, 4, 3, null, "CPL vs meta", "El CPL depende mucho del mercado, no solo de mi trabajo"],
+    [2, 0, 5, 5, 4, "Piezas entregadas vs solicitadas", null, null],
+    [3, 0, 4, 3, 4, null, null, "Motivante ver el progreso de todo el equipo"],
+    [0, -1, 3, 4, 3, null, "Engagement promedio", "Engagement depende del tema, no siempre de la calidad"],
+    [1, -1, 4, 4, 4, "Reportes semanales a tiempo", null, null],
+    [4, -1, 4, 5, 5, "Eventos sin incidencias", null, "El sistema motiva porque se ve el avance del equipo"],
+    [2, -1, 5, 4, 5, null, null, null],
+  ];
+
+  const semanaActualNum = isoWeek(ahora);
+  let encuestasCreadas = 0;
+  for (const [userIdx, offset, justicia, motivacion, claridad, kpiJusto, kpiInjusto, comentario] of encuestasDemo) {
+    if (userIdx >= usuariosPiloto.length) continue;
+    const user = usuariosPiloto[userIdx].user;
+    const semana = Math.max(1, semanaActualNum + offset);
+    await prisma.encuestaSemanal.create({
+      data: {
+        userId: user.id,
+        semanaDelAnio: semana,
+        anio,
+        justiciaKpis: justicia,
+        motivacionSistema: motivacion,
+        claridadProgreso: claridad,
+        kpiMasJusto: kpiJusto,
+        kpiMenosJusto: kpiInjusto,
+        comentario,
+        puntosOtorgados: 20,
+      },
+    });
+    encuestasCreadas++;
+  }
+  console.log(`  Encuestas demo: ${encuestasCreadas}`);
+
   console.log("\nListo.");
 }
 

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { requireAuth } from "@/lib/auth";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { BannerPiloto } from "@/components/piloto/BannerPiloto";
 
 export default async function DashboardLayout({
   children,
@@ -30,6 +31,7 @@ export default async function DashboardLayout({
       headerUser={headerUser}
       initialCollapsed={sidebarCollapsed}
     >
+      <BannerPiloto areaId={user.areaId} />
       {children}
     </DashboardShell>
   );

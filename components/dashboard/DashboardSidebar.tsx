@@ -17,6 +17,7 @@ import {
   Target,
   Heart,
   CheckSquare,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -52,6 +53,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { label: "Mi progreso", href: "/mi-progreso", icon: Target },
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
       { label: "Compromisos", href: "/compromisos", icon: CheckSquare },
+      { label: "Mi equipo", href: "/mi-equipo", icon: Users },
       { label: "Mi carrera", href: "/mi-carrera", icon: TrendingUp },
       { label: "Desempeno", href: "/desempeno", icon: LineChart },
     ],

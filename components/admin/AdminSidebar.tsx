@@ -15,6 +15,7 @@ import {
   Shield,
   Flag,
   Target,
+  Beaker,
 } from "lucide-react";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,12 @@ const secciones = [
     title: "Comunidad",
     items: [
       { label: "Moderacion", href: "/admin/moderacion", icon: Flag, check: () => true },
+    ],
+  },
+  {
+    title: "Piloto",
+    items: [
+      { label: "Piloto Marketing", href: "/admin/piloto", icon: Beaker, check: () => true },
     ],
   },
   {
