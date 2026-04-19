@@ -38,6 +38,8 @@ BEGIN
     nombre,
     apellido,
     rol,
+    "areaId",
+    "puestoId",
     activo,
     "createdAt",
     "updatedAt"
@@ -47,6 +49,8 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'nombre', 'Sin nombre'),
     COALESCE(NEW.raw_user_meta_data->>'apellido', ''),
     'TRABAJADOR',
+    NULLIF(NEW.raw_user_meta_data->>'areaId', ''),
+    NULLIF(NEW.raw_user_meta_data->>'puestoId', ''),
     true,
     NOW(),
     NOW()

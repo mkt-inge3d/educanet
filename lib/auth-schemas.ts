@@ -31,6 +31,8 @@ export const registerSchema = z
       .regex(/[a-z]/, "Debe incluir al menos una minuscula")
       .regex(/[0-9]/, "Debe incluir al menos un numero"),
     confirmPassword: z.string(),
+    areaId: z.string().min(1, "Selecciona tu area"),
+    puestoId: z.string().min(1, "Selecciona tu puesto"),
     acepteTerminos: z.literal(true, {
       message: "Debes aceptar los terminos y condiciones",
     }),

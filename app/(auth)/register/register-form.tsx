@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -9,17 +9,43 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { passwordStrength } from "@/lib/auth-schemas";
 import { registerAction } from "../actions";
 
 const strengthLabels = ["", "Debil", "Aceptable", "Fuerte", "Excelente"];
-const strengthColors = ["bg-muted", "bg-destructive", "bg-warning", "bg-success", "bg-primary"];
+const strengthColors = [
+  "bg-muted",
+  "bg-destructive",
+  "bg-warning",
+  "bg-success",
+  "bg-primary",
+];
 
-export function RegisterForm() {
+type AreaConPuestos = {
+  id: string;
+  nombre: string;
+  puestos: { id: string; nombre: string; nivel: number }[];
+};
+
+export function RegisterForm({ areas }: { areas: AreaConPuestos[] }) {
   const [state, formAction, isPending] = useActionState(registerAction, {});
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
+  const [areaId, setAreaId] = useState<string>("");
+  const [puestoId, setPuestoId] = useState<string>("");
   const strength = passwordStrength(password);
+
+  const puestosDelArea = useMemo(
+    () => areas.find((a) => a.id === areaId)?.puestos ?? [],
+    [areas, areaId]
+  );
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -39,7 +65,12 @@ export function RegisterForm() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="apellido">Apellido</Label>
-          <Input id="apellido" name="apellido" required autoComplete="family-name" />
+          <Input
+            id="apellido"
+            name="apellido"
+            required
+            autoComplete="family-name"
+          />
         </div>
       </motion.div>
 
@@ -64,6 +95,59 @@ export function RegisterForm() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
+        className="grid grid-cols-2 gap-4"
+      >
+        <div className="space-y-2">
+          <Label htmlFor="areaSelect">Area / Equipo</Label>
+          <input type="hidden" name="areaId" value={areaId} />
+          <Select
+            value={areaId}
+            onValueChange={(v) => {
+              setAreaId(v ?? "");
+              setPuestoId("");
+            }}
+          >
+            <SelectTrigger id="areaSelect" className="w-full">
+              <SelectValue placeholder="Selecciona tu area" />
+            </SelectTrigger>
+            <SelectContent>
+              {areas.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="puestoSelect">Puesto</Label>
+          <input type="hidden" name="puestoId" value={puestoId} />
+          <Select
+            value={puestoId}
+            onValueChange={(v) => setPuestoId(v ?? "")}
+            disabled={!areaId}
+          >
+            <SelectTrigger id="puestoSelect" className="w-full">
+              <SelectValue
+                placeholder={areaId ? "Selecciona" : "Elige un area"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {puestosDelArea.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
         className="space-y-2"
       >
         <Label htmlFor="password">Contrasena</Label>
@@ -82,11 +166,14 @@ export function RegisterForm() {
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             aria-label={showPassword ? "Ocultar" : "Mostrar"}
           >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </button>
         </div>
 
-        {/* Password strength indicator */}
         {password.length > 0 && (
           <div className="space-y-1">
             <div className="flex gap-1">
@@ -109,7 +196,7 @@ export function RegisterForm() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
+        transition={{ delay: 0.3 }}
         className="space-y-2"
       >
         <Label htmlFor="confirmPassword">Confirmar contrasena</Label>
@@ -125,7 +212,7 @@ export function RegisterForm() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.35 }}
         className="flex items-start gap-2"
       >
         <input
@@ -150,7 +237,7 @@ export function RegisterForm() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
+        transition={{ delay: 0.4 }}
       >
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

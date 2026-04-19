@@ -66,6 +66,8 @@ export async function registerAction(
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
+    areaId: formData.get("areaId"),
+    puestoId: formData.get("puestoId"),
     acepteTerminos: formData.get("acepteTerminos") === "on" ? true : undefined,
   };
 
@@ -75,7 +77,7 @@ export async function registerAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -83,6 +85,8 @@ export async function registerAction(
         nombre: parsed.data.nombre,
         apellido: parsed.data.apellido,
         rol: "TRABAJADOR",
+        areaId: parsed.data.areaId,
+        puestoId: parsed.data.puestoId,
       },
     },
   });
@@ -92,6 +96,19 @@ export async function registerAction(
       return { error: "Este correo ya esta registrado" };
     }
     return { error: "Error al crear la cuenta. Intenta de nuevo." };
+  }
+
+  if (!data.session) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
+    if (signInError) {
+      return {
+        error:
+          "Cuenta creada. Revisa tu correo para confirmar tu direccion antes de iniciar sesion.",
+      };
+    }
   }
 
   redirect("/cursos");

@@ -1,108 +1,73 @@
 import Link from "next/link";
-import { GraduationCap, BookOpen, Trophy, Award, TrendingUp, ArrowRight } from "lucide-react";
+import { GraduationCap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { prisma } from "@/lib/prisma";
 
-export default async function HomePage() {
-  const [cursosCount, certificadosCount, usuariosCount] = await Promise.all([
-    prisma.curso.count({ where: { publicado: true } }),
-    prisma.certificado.count(),
-    prisma.user.count({ where: { activo: true } }),
-  ]);
-
+export default function HomePage() {
   return (
-    <div className="flex min-h-full flex-col">
-      {/* Header */}
-      <header className="border-b">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <div className="relative flex min-h-full flex-col overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 via-background to-background" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-40">
+        <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+              <circle cx="16" cy="16" r="1" className="fill-primary/20" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#dots)" />
+        </svg>
+      </div>
+
+      <header className="px-6 py-5 sm:px-10">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-2 text-primary">
             <GraduationCap className="h-7 w-7" />
-            <span className="text-xl font-bold">educanet</span>
+            <span className="text-lg font-bold tracking-tight">educanet</span>
           </div>
-          <Button size="sm" render={<Link href="/login" />}>
-            Iniciar sesion
+          <Button size="sm" variant="ghost" render={<Link href="/verificar" />}>
+            Verificar certificado
           </Button>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          Crece con tu empresa,{" "}
-          <span className="text-primary">crece contigo</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Educanet es la plataforma interna de desarrollo profesional. Aprende,
-          obtén certificados verificables y avanza en tu carrera.
-        </p>
-        <div className="mt-8 flex justify-center gap-4">
-          <Button size="lg" render={<Link href="/login" />}>
-            Iniciar sesion
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-          <Button size="lg" variant="outline" render={<Link href="/verificar" />}>
-            Verificar certificado
-          </Button>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t bg-muted/30 py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <h2 className="text-center text-2xl font-bold mb-12">
-            Todo lo que necesitas para crecer
-          </h2>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: BookOpen, title: "Cursos a tu medida", desc: "Contenido disenado para tu rol y area" },
-              { icon: Trophy, title: "Gamificacion", desc: "Puntos, badges y rankings que motivan" },
-              { icon: Award, title: "Certificados", desc: "Certificados verificables con QR" },
-              { icon: TrendingUp, title: "Tu carrera", desc: "Visualiza tu camino de crecimiento" },
-            ].map((f) => {
-              const Icon = f.icon;
-              return (
-                <div key={f.title} className="text-center space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                    <Icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground">{f.desc}</p>
-                </div>
-              );
-            })}
+      <main className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-xl text-center">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+            <GraduationCap className="h-7 w-7 text-primary" />
           </div>
-        </div>
-      </section>
 
-      {/* Stats */}
-      <section className="py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="grid grid-cols-3 gap-8 text-center">
-            <div>
-              <p className="text-3xl font-bold text-primary">{cursosCount}</p>
-              <p className="text-sm text-muted-foreground">Cursos disponibles</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-primary">{certificadosCount}</p>
-              <p className="text-sm text-muted-foreground">Certificados emitidos</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-primary">{usuariosCount}</p>
-              <p className="text-sm text-muted-foreground">Trabajadores creciendo</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+            Crece con tu empresa,{" "}
+            <span className="text-primary">crece contigo</span>
+          </h1>
 
-      {/* Footer */}
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <div className="mx-auto max-w-6xl px-4 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-          <p>Educanet — Plataforma de crecimiento profesional</p>
-          <div className="flex gap-4">
-            <Link href="/login" className="hover:text-foreground">Iniciar sesion</Link>
-            <Link href="/verificar" className="hover:text-foreground">Verificar certificado</Link>
+          <p className="mx-auto mt-5 max-w-md text-balance text-base text-muted-foreground">
+            Plataforma interna de desarrollo profesional. Aprende, obten
+            certificados y avanza en tu carrera.
+          </p>
+
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Button size="lg" className="min-w-40" render={<Link href="/login" />}>
+              Iniciar sesion
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-w-40"
+              render={<Link href="/register" />}
+            >
+              Crear cuenta
+            </Button>
           </div>
+
+          <p className="mt-10 text-xs uppercase tracking-widest text-muted-foreground/80">
+            El conocimiento es poder
+          </p>
         </div>
+      </main>
+
+      <footer className="border-t/0 px-6 py-6 text-center text-xs text-muted-foreground">
+        Educanet — Capacitacion continua para tu equipo
       </footer>
     </div>
   );

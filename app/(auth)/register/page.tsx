@@ -1,8 +1,28 @@
+import { prisma } from "@/lib/prisma";
 import { RegisterForm } from "./register-form";
 
 export const metadata = { title: "Crear cuenta" };
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const areas = await prisma.area.findMany({
+    orderBy: { nombre: "asc" },
+    include: {
+      puestos: {
+        where: { NOT: { nombre: { startsWith: "Jefe" } } },
+        orderBy: [{ nivel: "asc" }, { orden: "asc" }],
+        select: { id: true, nombre: true, nivel: true },
+      },
+    },
+  });
+
+  const areasConPuestos = areas
+    .filter((a) => a.puestos.length > 0)
+    .map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      puestos: a.puestos,
+    }));
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
@@ -14,7 +34,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <RegisterForm />
+      <RegisterForm areas={areasConPuestos} />
     </div>
   );
 }

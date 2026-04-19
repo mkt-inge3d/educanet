@@ -1,6 +1,5 @@
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
-import { AuthMotivational } from "./motivational";
 
 export default function AuthLayout({
   children,
@@ -8,51 +7,39 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-full">
-      {/* Left column: form */}
-      <div className="flex flex-1 flex-col justify-between px-6 py-8 sm:px-12 lg:w-[60%] lg:flex-none">
-        <div>
-          <Link href="/" className="flex items-center gap-2 text-primary">
-            <GraduationCap className="h-8 w-8" />
-            <span className="text-xl font-bold">Educanet</span>
-          </Link>
-        </div>
-
-        <div className="mx-auto w-full max-w-md">{children}</div>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Necesitas ayuda?{" "}
-          <a
-            href="mailto:soporte@educanet.local"
-            className="text-primary hover:underline"
-          >
-            Contacta a soporte
-          </a>
-        </p>
+    <div className="relative flex min-h-full flex-col overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 via-background to-background" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-40">
+        <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="auth-dots" width="32" height="32" patternUnits="userSpaceOnUse">
+              <circle cx="16" cy="16" r="1" className="fill-primary/20" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#auth-dots)" />
+        </svg>
       </div>
 
-      {/* Right column: decorative (hidden on mobile) */}
-      <div className="relative hidden lg:flex lg:w-[40%] lg:flex-col lg:items-center lg:justify-center lg:overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-secondary/80 p-12">
-        {/* Geometric pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <circle cx="20" cy="20" r="1.5" fill="white" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+      <header className="px-6 py-5 sm:px-10">
+        <Link href="/" className="inline-flex items-center gap-2 text-primary">
+          <GraduationCap className="h-7 w-7" />
+          <span className="text-lg font-bold tracking-tight">Educanet</span>
+        </Link>
+      </header>
 
-        <div className="relative z-10 text-center text-white">
-          <GraduationCap className="mx-auto mb-6 h-16 w-16" />
-          <AuthMotivational />
-          <p className="mt-4 text-sm text-white/70">
-            Capacitacion continua para tu equipo
-          </p>
-        </div>
-      </div>
+      <main className="flex flex-1 items-center justify-center px-6 py-8">
+        <div className="w-full max-w-md">{children}</div>
+      </main>
+
+      <footer className="px-6 py-6 text-center text-xs text-muted-foreground">
+        Necesitas ayuda?{" "}
+        <a
+          href="mailto:soporte@educanet.local"
+          className="text-primary hover:underline"
+        >
+          Contacta a soporte
+        </a>
+      </footer>
     </div>
   );
 }

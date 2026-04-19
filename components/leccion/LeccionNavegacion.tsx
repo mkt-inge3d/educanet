@@ -52,7 +52,7 @@ export function LeccionNavegacion({
           <Button
             variant="ghost"
             size="sm"
-            render={<Link href={`/cursos/${cursoSlug}/${anterior.slug}`} />}
+            render={<Link href={`/cursos/${cursoSlug}/${anterior.slug}`} prefetch />}
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Anterior</span>
@@ -76,7 +76,7 @@ export function LeccionNavegacion({
           <Button
             variant="ghost"
             size="sm"
-            render={<Link href={`/cursos/${cursoSlug}/${siguiente.slug}`} />}
+            render={<Link href={`/cursos/${cursoSlug}/${siguiente.slug}`} prefetch />}
           >
             <span className="hidden sm:inline">Siguiente</span>
             <ArrowRight className="ml-1 h-4 w-4" />

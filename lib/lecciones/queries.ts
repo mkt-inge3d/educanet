@@ -151,20 +151,27 @@ export async function obtenerLeccionesAdyacentes(
 
   if (!curso) return { anterior: null, siguiente: null };
 
-  // Flatten all lessons in order
-  const todas: (LeccionAdyacente & { modOrden: number; lecOrden: number })[] = [];
-  for (const m of curso.modulos) {
-    for (const l of m.lecciones) {
-      todas.push({ slug: l.slug, titulo: l.titulo, tipo: l.tipo, modOrden: m.orden, lecOrden: l.orden });
-    }
-  }
+  return adyacentesDesdeModulos(curso.modulos, moduloOrden, leccionOrden);
+}
 
-  const idx = todas.findIndex(
-    (l) => l.modOrden === moduloOrden && l.lecOrden === leccionOrden
+type ModuloMin = {
+  lecciones: { slug: string; titulo: string; tipo: LeccionAdyacente["tipo"] }[];
+};
+
+export function adyacentesDesdeModulos(
+  modulos: ModuloMin[],
+  _moduloOrden: number,
+  _leccionOrden: number,
+  leccionSlug?: string
+): { anterior: LeccionAdyacente | null; siguiente: LeccionAdyacente | null } {
+  const todas: LeccionAdyacente[] = modulos.flatMap((m) =>
+    m.lecciones.map((l) => ({ slug: l.slug, titulo: l.titulo, tipo: l.tipo }))
   );
 
+  const idx = leccionSlug ? todas.findIndex((l) => l.slug === leccionSlug) : -1;
+
   return {
-    anterior: idx > 0 ? { slug: todas[idx - 1].slug, titulo: todas[idx - 1].titulo, tipo: todas[idx - 1].tipo } : null,
-    siguiente: idx < todas.length - 1 ? { slug: todas[idx + 1].slug, titulo: todas[idx + 1].titulo, tipo: todas[idx + 1].tipo } : null,
+    anterior: idx > 0 ? todas[idx - 1] : null,
+    siguiente: idx >= 0 && idx < todas.length - 1 ? todas[idx + 1] : null,
   };
 }

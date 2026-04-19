@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import {
   obtenerLeccionCompleta,
   obtenerEstructuraCurso,
-  obtenerLeccionesAdyacentes,
+  adyacentesDesdeModulos,
 } from "@/lib/lecciones/queries";
 import { LeccionLayout } from "@/components/leccion/LeccionLayout";
 import { LeccionPanelDer } from "@/components/leccion/LeccionPanelDer";
@@ -38,10 +38,11 @@ export default async function LeccionPage({
 
   if (!leccion) notFound();
 
-  const nav = await obtenerLeccionesAdyacentes(
-    slug,
+  const nav = adyacentesDesdeModulos(
+    estructura,
     leccion.modulo.orden,
-    leccion.orden
+    leccion.orden,
+    leccion.slug
   );
 
   const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
