@@ -30,7 +30,7 @@ export async function CardHitosKpiResumen({ userId, mes, anio }: Props) {
 
   return (
     <Link
-      href="/mi-progreso/kpis"
+      href="/compromisos?tab=hitos"
       className="group flex flex-col items-stretch gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-foreground/20 sm:flex-row"
     >
       <div className="flex shrink-0 items-center justify-center">
