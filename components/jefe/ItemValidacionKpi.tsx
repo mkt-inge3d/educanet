@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, XCircle, Loader2, FileText, ImageIcon } from "lucide-react";
+import { RotateCcw, Loader2, FileText, ImageIcon, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { validarInstancia } from "@/lib/kpis/hitos-actions";
+import { revertirAprobado } from "@/lib/kpis/hitos-actions";
 import type { ItemValidacion } from "@/lib/kpis/hitos-queries";
 
 type Props = {
@@ -18,38 +18,24 @@ export function ItemValidacionKpi({ item }: Props) {
   const [mostrarComentario, setMostrarComentario] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function aprobar() {
-    startTransition(async () => {
-      const r = await validarInstancia({
-        instanciaId: item.instanciaId,
-        aprobar: true,
-        comentario: comentario.trim() || undefined,
-      });
-      if (!r.success) {
-        toast.error(r.error ?? "No se pudo aprobar");
-        return;
-      }
-      toast.success(`+${r.puntos ?? item.puntosAOtorgar} pts a ${item.user.nombre}`);
-    });
-  }
-
-  function rechazar() {
+  function revertir() {
     if (!comentario.trim()) {
       setMostrarComentario(true);
-      toast.error("Necesitas un comentario para rechazar");
+      toast.error("Necesitas un comentario para regresarlo");
       return;
     }
     startTransition(async () => {
-      const r = await validarInstancia({
+      const r = await revertirAprobado({
         instanciaId: item.instanciaId,
-        aprobar: false,
         comentario: comentario.trim(),
       });
       if (!r.success) {
-        toast.error(r.error ?? "No se pudo rechazar");
+        toast.error(r.error ?? "No se pudo regresar");
         return;
       }
-      toast.success("Rechazado. El empleado fue notificado.");
+      toast.success(
+        `Regresado a ${item.user.nombre}. Se restaron ${item.puntosOtorgados} pts.`
+      );
     });
   }
 
@@ -66,17 +52,20 @@ export function ItemValidacionKpi({ item }: Props) {
             </span>
           </p>
           <p className="mt-0.5 text-sm font-semibold">{item.nombre}</p>
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline" className="font-mono">
               {item.frecuencia === "SEMANAL"
                 ? `Semana ${item.semanaDelAnio}`
                 : "Mensual"}
             </Badge>
-            <span>+{item.puntosAOtorgar} pts</span>
-            {item.fechaReportado && (
+            <Badge className="bg-success text-success-foreground">
+              <CheckCircle2 className="mr-1 h-3 w-3" />
+              Terminado · +{item.puntosOtorgados} pts
+            </Badge>
+            {item.fechaValidado && (
               <span>
-                ·{" "}
-                {new Date(item.fechaReportado).toLocaleDateString("es", {
+                Marcado{" "}
+                {new Date(item.fechaValidado).toLocaleDateString("es", {
                   day: "numeric",
                   month: "short",
                   hour: "2-digit",
@@ -111,7 +100,7 @@ export function ItemValidacionKpi({ item }: Props) {
             <img
               src={item.evidenciaUrl}
               alt={`Evidencia de ${item.codigo}`}
-              className="max-h-64 w-full object-contain bg-muted/30"
+              className="max-h-64 w-full bg-muted/30 object-contain"
             />
           )}
         </div>
@@ -120,13 +109,13 @@ export function ItemValidacionKpi({ item }: Props) {
       {!item.evidenciaUrl && (
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5" />
-          Sin evidencia adjunta.
+          Sin evidencia adjunta (es opcional).
         </div>
       )}
 
       {mostrarComentario && (
         <Textarea
-          placeholder="Comentario obligatorio para rechazar..."
+          placeholder="Por que lo regresas? (visible al empleado)..."
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
           rows={2}
@@ -134,35 +123,26 @@ export function ItemValidacionKpi({ item }: Props) {
         />
       )}
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex justify-end">
         <Button
           size="sm"
-          className="flex-1 gap-1 bg-success text-success-foreground hover:bg-success/90"
-          onClick={aprobar}
+          variant="outline"
+          className="gap-1"
+          onClick={() => {
+            if (!mostrarComentario) {
+              setMostrarComentario(true);
+            } else {
+              revertir();
+            }
+          }}
           disabled={isPending}
         >
           {isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <CheckCircle2 className="h-3.5 w-3.5" />
+            <RotateCcw className="h-3.5 w-3.5" />
           )}
-          Aprobar +{item.puntosAOtorgar}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex-1 gap-1"
-          onClick={() => {
-            if (!mostrarComentario) {
-              setMostrarComentario(true);
-            } else {
-              rechazar();
-            }
-          }}
-          disabled={isPending}
-        >
-          <XCircle className="h-3.5 w-3.5" />
-          {mostrarComentario ? "Confirmar rechazo" : "Rechazar"}
+          {mostrarComentario ? "Confirmar regresar" : "Regresar como incompleto"}
         </Button>
       </div>
     </div>

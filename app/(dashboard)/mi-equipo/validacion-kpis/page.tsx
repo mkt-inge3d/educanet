@@ -45,17 +45,18 @@ export default async function ValidacionKpisPage() {
           Volver a Mi equipo
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">
-          Validacion de hitos KPI
+          Revisar hitos del equipo
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Revisa la evidencia y aprueba o rechaza cada hito reportado por tu equipo.
+          Hitos que el equipo marco como terminados. Si encuentras alguno mal,
+          regresalo como tarea incompleta y se restaran los puntos automaticamente.
         </p>
       </div>
 
       <Tabs defaultValue="pendientes" className="space-y-4">
         <TabsList>
           <TabsTrigger value="pendientes">
-            Pendientes ({cola.total})
+            Para revisar ({cola.total})
           </TabsTrigger>
           <TabsTrigger value="configurar">Configurar mes</TabsTrigger>
         </TabsList>
@@ -63,7 +64,7 @@ export default async function ValidacionKpisPage() {
         <TabsContent value="pendientes" className="space-y-3">
           {cola.total === 0 ? (
             <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Sin hitos pendientes de revision. Tu equipo esta al dia.
+              Aun no hay hitos terminados para revisar este mes.
             </div>
           ) : (
             cola.items.map((item) => (

@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   CheckCircle2,
   CircleDashed,
   Clock,
   XCircle,
   Ban,
-  Upload,
+  Paperclip,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ModalReportarHito } from "./ModalReportarHito";
 import { VelocimetroPuntos } from "./VelocimetroPuntos";
+import { marcarTerminado } from "@/lib/kpis/hitos-actions";
 import type {
   HitoConInstancia,
   ProgresoHitosUsuario,
@@ -139,15 +142,29 @@ function badgeEstado(estado: HitoView["estado"]) {
 
 function HitoKanbanCard({
   view,
-  onReportar,
+  onAdjuntar,
 }: {
   view: HitoView;
-  onReportar: () => void;
+  onAdjuntar: () => void;
 }) {
+  const [isPending, startTransition] = useTransition();
   const puntos = view.hito.puntosAjustados ?? view.hito.puntos;
-  const puedeReportar =
+  const puedeMarcar =
     view.instanciaId != null &&
-    (view.estado === "PENDIENTE" || view.estado === "RECHAZADO");
+    view.estado !== "APROBADO" &&
+    view.estado !== "NO_APLICA";
+
+  function terminar() {
+    if (!view.instanciaId) return;
+    startTransition(async () => {
+      const r = await marcarTerminado({ instanciaId: view.instanciaId! });
+      if (!r.success) {
+        toast.error(r.error ?? "No se pudo marcar como terminado");
+        return;
+      }
+      toast.success(`+${r.puntos} pts. Tu jefe lo revisara la proxima semana.`);
+    });
+  }
 
   return (
     <div className="rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
@@ -173,28 +190,46 @@ function HitoKanbanCard({
 
       <div className="mt-2 flex items-center justify-between gap-2">
         {badgeEstado(view.estado)}
-        {puedeReportar && (
+      </div>
+
+      {puedeMarcar && (
+        <div className="mt-2 flex gap-2">
           <Button
             size="sm"
-            variant={view.estado === "RECHAZADO" ? "default" : "outline"}
-            className="h-7 gap-1 text-xs"
-            onClick={onReportar}
+            className="h-7 flex-1 gap-1 text-xs"
+            onClick={terminar}
+            disabled={isPending}
           >
-            <Upload className="h-3 w-3" />
-            {view.estado === "RECHAZADO" ? "Reenviar" : "Reportar"}
+            {isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-3 w-3" />
+            )}
+            Terminado
           </Button>
-        )}
-      </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-xs"
+            onClick={onAdjuntar}
+            disabled={isPending}
+            title="Adjuntar evidencia (opcional)"
+          >
+            <Paperclip className="h-3 w-3" />
+            Evidencia
+          </Button>
+        </div>
+      )}
 
       {view.estado === "RECHAZADO" && view.comentarioRevisor && (
         <p className="mt-2 rounded bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
           <strong>Jefe:</strong> {view.comentarioRevisor}
         </p>
       )}
-      {view.estado === "EN_REVISION" && view.fechaReportado && (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Reportado{" "}
-          {new Date(view.fechaReportado).toLocaleDateString("es", {
+      {view.estado === "APROBADO" && view.fechaValidado && (
+        <p className="mt-2 text-[10px] text-success">
+          Marcado{" "}
+          {new Date(view.fechaValidado).toLocaleDateString("es", {
             day: "numeric",
             month: "short",
           })}
@@ -256,19 +291,19 @@ export function HitosKanban({ progreso }: { progreso: ProgresoHitosUsuario }) {
       <div className="grid gap-4 md:grid-cols-2">
         <Columna
           titulo="Pendientes"
-          subtitulo="Te toca reportar o esperan revision del jefe"
+          subtitulo="Te toca marcar terminado (la evidencia es opcional)"
           icono={<CircleDashed className="h-4 w-4 text-muted-foreground" />}
           items={pendientes}
-          onReportar={(view) => setActivo(view)}
+          onAdjuntar={(view) => setActivo(view)}
           empty="Nada pendiente. Buena."
         />
         <Columna
           titulo="Completados"
-          subtitulo="Aprobados o marcados como no aplica"
+          subtitulo="Tu jefe los revisara cada semana"
           icono={<CheckCircle2 className="h-4 w-4 text-success" />}
           items={completados}
-          onReportar={() => {}}
-          empty="Aun no hay hitos cerrados este mes."
+          onAdjuntar={() => {}}
+          empty="Aun no hay hitos terminados este mes."
         />
       </div>
 
@@ -293,14 +328,14 @@ function Columna({
   subtitulo,
   icono,
   items,
-  onReportar,
+  onAdjuntar,
   empty,
 }: {
   titulo: string;
   subtitulo: string;
   icono: React.ReactNode;
   items: HitoView[];
-  onReportar: (view: HitoView) => void;
+  onAdjuntar: (view: HitoView) => void;
   empty: string;
 }) {
   return (
@@ -325,7 +360,7 @@ function Columna({
             <HitoKanbanCard
               key={`${view.hito.asignacionMesId}-${view.instanciaId ?? idx}`}
               view={view}
-              onReportar={() => onReportar(view)}
+              onAdjuntar={() => onAdjuntar(view)}
             />
           ))}
         </div>

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { reportarInstancia } from "@/lib/kpis/hitos-actions";
+import { marcarTerminado } from "@/lib/kpis/hitos-actions";
 import { TIPOS_PERMITIDOS, TAMANO_MAX_BYTES } from "@/lib/kpis/evidencia-storage";
 
 type Props = {
@@ -86,17 +86,17 @@ export function ModalReportarHito({
         }
       }
 
-      const r = await reportarInstancia({
+      const r = await marcarTerminado({
         instanciaId,
         comentario: comentario.trim() || undefined,
         archivo: archivoData,
       });
 
       if (!r.success) {
-        toast.error(r.error ?? "No se pudo reportar");
+        toast.error(r.error ?? "No se pudo marcar como terminado");
         return;
       }
-      toast.success("Reportado. Tu jefe lo revisara en breve.");
+      toast.success(`+${r.puntos} pts. Tu jefe lo revisara la proxima semana.`);
       reset();
       onOpenChange(false);
     });
@@ -170,7 +170,7 @@ export function ModalReportarHito({
           </Button>
           <Button onClick={submit} disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Enviar a revision
+            Marcar terminado
           </Button>
         </div>
       </DialogContent>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { obtenerJefeUser } from "@/lib/compromisos/jerarquia";
 import { procesarEvento } from "@/lib/gamificacion/motor";
+import { recalcularRangoMensual } from "@/lib/gamificacion/rangos";
 import {
   subirEvidenciaKpi,
   TIPOS_PERMITIDOS,
@@ -12,6 +13,207 @@ import {
 } from "./evidencia-storage";
 
 type Result = { success: boolean; error?: string; puntos?: number };
+
+// ───────────────────────────────────────────────────────────────────
+// EMPLEADO: marcar instancia como Terminado (drip directo, evidencia opcional)
+// ───────────────────────────────────────────────────────────────────
+export async function marcarTerminado(input: {
+  instanciaId: string;
+  comentario?: string;
+  archivo?: { tipo: string; data: string };
+}): Promise<Result> {
+  const usuario = await requireAuth();
+
+  const instancia = await prisma.kpiInstancia.findUnique({
+    where: { id: input.instanciaId },
+    include: {
+      asignacionMes: {
+        include: { definicion: true, user: true },
+      },
+    },
+  });
+  if (!instancia) return { success: false, error: "Instancia no encontrada" };
+  if (instancia.asignacionMes.userId !== usuario.id) {
+    return { success: false, error: "Esta instancia no es tuya" };
+  }
+  if (instancia.estado === "APROBADO") {
+    return { success: false, error: "Ya esta marcado como terminado" };
+  }
+  if (instancia.estado === "NO_APLICA") {
+    return { success: false, error: "Este KPI esta marcado como No aplica" };
+  }
+  if (instancia.asignacionMes.noAplica) {
+    return { success: false, error: "Este KPI esta marcado como No aplica" };
+  }
+
+  let evidenciaPath: string | null = instancia.evidenciaPath;
+  let evidenciaTipo: string | null = instancia.evidenciaTipo;
+
+  if (input.archivo) {
+    if (!TIPOS_PERMITIDOS.includes(input.archivo.tipo)) {
+      return { success: false, error: "Tipo de archivo no permitido" };
+    }
+    const buffer = Buffer.from(input.archivo.data, "base64");
+    if (buffer.byteLength > TAMANO_MAX_BYTES) {
+      return { success: false, error: "El archivo supera 5MB" };
+    }
+    const subida = await subirEvidenciaKpi({
+      userId: usuario.id,
+      instanciaId: instancia.id,
+      buffer,
+      tipo: input.archivo.tipo,
+    });
+    evidenciaPath = subida.path;
+    evidenciaTipo = subida.tipo;
+  }
+
+  const def = instancia.asignacionMes.definicion;
+  const puntos = instancia.asignacionMes.puntosAjustados ?? def.puntos ?? 0;
+  if (puntos <= 0) {
+    return { success: false, error: "Definicion sin puntos asignados" };
+  }
+
+  const resultado = await procesarEvento({
+    userId: instancia.asignacionMes.userId,
+    tipo: "KPI_HITO_APROBADO",
+    fuente: "KPIS",
+    puntosBrutos: puntos,
+    referenciaId: instancia.id,
+    descripcion: `${def.codigo} ${def.nombre}`,
+    metadatos: {
+      codigo: def.codigo,
+      frecuencia: def.frecuencia,
+      semanaDelAnio: instancia.semanaDelAnio,
+      autoMarcado: true,
+    },
+  });
+
+  await prisma.kpiInstancia.update({
+    where: { id: instancia.id },
+    data: {
+      estado: "APROBADO",
+      evidenciaPath,
+      evidenciaTipo,
+      comentarioEmpleado: input.comentario ?? null,
+      comentarioRevisor: null,
+      fechaReportado: new Date(),
+      fechaValidado: new Date(),
+      puntosOtorgados: resultado.puntosFinales,
+      eventoGamificacionId: resultado.eventoId,
+    },
+  });
+
+  // Notificar al jefe — para revision semanal
+  const jefe = await obtenerJefeUser(usuario.id);
+  if (jefe) {
+    await prisma.notificacion.create({
+      data: {
+        userId: jefe.id,
+        tipo: "SISTEMA",
+        titulo: "Hito KPI marcado como terminado",
+        mensaje: `${usuario.nombre} marco "${def.nombre}" (${def.codigo})`,
+        url: "/mi-equipo/validacion-kpis",
+      },
+    });
+  }
+
+  revalidatePath("/compromisos");
+  revalidatePath("/mi-progreso");
+  revalidatePath("/mi-equipo/validacion-kpis");
+  return { success: true, puntos: resultado.puntosFinales };
+}
+
+// ───────────────────────────────────────────────────────────────────
+// JEFE: revertir un hito aprobado (lo marca como tarea incompleta)
+// Resta los puntos otorgados y borra el evento de gamificacion.
+// ───────────────────────────────────────────────────────────────────
+export async function revertirAprobado(input: {
+  instanciaId: string;
+  comentario: string;
+}): Promise<Result> {
+  const validador = await requireAuth();
+
+  if (!input.comentario || input.comentario.trim().length === 0) {
+    return { success: false, error: "Necesitas un comentario para revertir" };
+  }
+
+  const instancia = await prisma.kpiInstancia.findUnique({
+    where: { id: input.instanciaId },
+    include: {
+      asignacionMes: {
+        include: { definicion: true, user: true },
+      },
+    },
+  });
+  if (!instancia) return { success: false, error: "Instancia no encontrada" };
+  if (instancia.estado !== "APROBADO") {
+    return {
+      success: false,
+      error: "Solo se pueden revertir hitos aprobados",
+    };
+  }
+
+  const esAdmin =
+    validador.rol === "ADMIN" || validador.rol === "RRHH";
+  if (!esAdmin) {
+    const jefe = await obtenerJefeUser(instancia.asignacionMes.userId);
+    if (!jefe || jefe.id !== validador.id) {
+      return { success: false, error: "Solo el jefe puede revertir" };
+    }
+  }
+
+  const puntosARestar = instancia.puntosOtorgados;
+  const eventoId = instancia.eventoGamificacionId;
+
+  await prisma.$transaction(async (tx) => {
+    if (eventoId) {
+      await tx.eventoGamificacion.deleteMany({ where: { id: eventoId } });
+    }
+    await tx.transaccionPuntos.deleteMany({
+      where: { referenciaId: instancia.id },
+    });
+    if (puntosARestar > 0) {
+      await tx.user.update({
+        where: { id: instancia.asignacionMes.userId },
+        data: { puntosTotales: { decrement: puntosARestar } },
+      });
+    }
+    await tx.kpiInstancia.update({
+      where: { id: instancia.id },
+      data: {
+        estado: "RECHAZADO",
+        validadoPorId: validador.id,
+        fechaValidado: new Date(),
+        comentarioRevisor: input.comentario.trim(),
+        puntosOtorgados: 0,
+        eventoGamificacionId: null,
+      },
+    });
+  });
+
+  // Recalcular rango mensual del empleado
+  const fecha = instancia.fechaValidado ?? new Date();
+  await recalcularRangoMensual(
+    instancia.asignacionMes.userId,
+    fecha.getMonth() + 1,
+    fecha.getFullYear()
+  );
+
+  await prisma.notificacion.create({
+    data: {
+      userId: instancia.asignacionMes.userId,
+      tipo: "SISTEMA",
+      titulo: "Hito devuelto como tarea incompleta",
+      mensaje: `${instancia.asignacionMes.definicion.codigo}: ${input.comentario.trim()}`,
+      url: "/compromisos",
+    },
+  });
+
+  revalidatePath("/compromisos");
+  revalidatePath("/mi-progreso");
+  revalidatePath("/mi-equipo/validacion-kpis");
+  return { success: true };
+}
 
 // ───────────────────────────────────────────────────────────────────
 // EMPLEADO: reportar instancia (con o sin evidencia)

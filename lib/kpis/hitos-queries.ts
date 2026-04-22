@@ -161,20 +161,26 @@ export type ItemValidacion = {
   frecuencia: "SEMANAL" | "MENSUAL";
   semanaDelAnio: number | null;
   numeroOcurrencia: number;
-  puntosAOtorgar: number;
+  puntosOtorgados: number;
   evidenciaPath: string | null;
   evidenciaTipo: string | null;
   evidenciaUrl: string | null;
   comentarioEmpleado: string | null;
   fechaReportado: Date | null;
+  fechaValidado: Date | null;
 };
 
+/**
+ * Cola de revision para el jefe: instancias APROBADAS automaticamente por el
+ * empleado (auto-marcadas) que el jefe debe revisar. Si encuentra una mal,
+ * la regresa via revertirAprobado.
+ */
 export async function obtenerColaValidacionJefe(jefeAreaId: string | null) {
   if (!jefeAreaId) return { items: [] as ItemValidacion[], total: 0 };
 
   const instancias = await prisma.kpiInstancia.findMany({
     where: {
-      estado: "EN_REVISION",
+      estado: "APROBADO",
       asignacionMes: {
         user: { areaId: jefeAreaId, activo: true },
       },
@@ -189,13 +195,12 @@ export async function obtenerColaValidacionJefe(jefeAreaId: string | null) {
         },
       },
     },
-    orderBy: { fechaReportado: "asc" },
+    orderBy: { fechaValidado: "desc" },
   });
 
   const items: ItemValidacion[] = await Promise.all(
     instancias.map(async (i) => {
       const def = i.asignacionMes.definicion;
-      const puntos = i.asignacionMes.puntosAjustados ?? def.puntos ?? 0;
       let evidenciaUrl: string | null = null;
       if (i.evidenciaPath) {
         try {
@@ -212,12 +217,13 @@ export async function obtenerColaValidacionJefe(jefeAreaId: string | null) {
         frecuencia: def.frecuencia!,
         semanaDelAnio: i.semanaDelAnio,
         numeroOcurrencia: i.numeroOcurrencia,
-        puntosAOtorgar: puntos,
+        puntosOtorgados: i.puntosOtorgados,
         evidenciaPath: i.evidenciaPath,
         evidenciaTipo: i.evidenciaTipo,
         evidenciaUrl,
         comentarioEmpleado: i.comentarioEmpleado,
         fechaReportado: i.fechaReportado,
+        fechaValidado: i.fechaValidado,
       };
     })
   );
