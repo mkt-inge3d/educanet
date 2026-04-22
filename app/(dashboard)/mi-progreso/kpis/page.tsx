@@ -1,27 +1,23 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
-import { mesActual, getSemanaISO } from "@/lib/gamificacion/periodo";
-import {
-  obtenerKpisConAsignaciones,
-  obtenerProgresoMes,
-} from "@/lib/kpis/mi-progreso-queries";
-import { KpiCard } from "@/components/kpis/KpiCard";
+import { mesActual } from "@/lib/gamificacion/periodo";
+import { obtenerHitosUsuario } from "@/lib/kpis/hitos-queries";
+import { VelocimetroPuntos } from "@/components/kpis/hitos/VelocimetroPuntos";
+import { ListaHitos } from "@/components/kpis/hitos/ListaHitos";
 
-export const metadata = { title: "Mis KPIs" };
+export const metadata = { title: "Mis hitos KPI" };
 
-export default async function MisKpisPage() {
+export default async function MisHitosKpiPage() {
   const user = await requireAuth();
   const { mes, anio } = mesActual();
-  const { semana } = getSemanaISO(new Date());
+  const progreso = await obtenerHitosUsuario(user.id, mes, anio);
 
-  const [asignaciones, progreso] = await Promise.all([
-    obtenerKpisConAsignaciones(user.id, mes, anio),
-    obtenerProgresoMes(user.id, mes, anio),
-  ]);
+  const sinHitos =
+    progreso.semanales.length === 0 && progreso.mensuales.length === 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <Link
           href="/mi-progreso"
@@ -30,49 +26,94 @@ export default async function MisKpisPage() {
           <ArrowLeft className="h-3 w-3" />
           Volver a Mi progreso
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Mis KPIs</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Mis hitos del mes</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {user.puesto?.nombre ?? "Sin puesto"} · Cumplimiento global{" "}
-          <span className="font-medium text-foreground">
-            {progreso.cumplimientoKpis.toFixed(0)}%
-          </span>
+          {user.puesto?.nombre ?? "Sin puesto"} · Semana ISO {progreso.periodo.semana}
         </p>
       </div>
 
-      {asignaciones.length === 0 ? (
+      {sinHitos ? (
         <div className="rounded-xl border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Aun no tienes KPIs asignados este mes. Tu jefe o RRHH los
-            asignaran al iniciar el periodo.
+            Aun no tienes hitos KPI configurados para tu puesto. Tu jefe o RRHH
+            los activaran al iniciar el periodo.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {asignaciones.map((a) => {
-            const cumpl = progreso.cumplimientos.find(
-              (c) => c.asignacionId === a.id
-            );
-            return (
-              <KpiCard
-                key={a.id}
-                asignacionId={a.id}
-                nombre={a.definicion.nombre}
-                descripcion={a.definicion.descripcion}
-                unidad={a.definicion.unidad}
-                peso={a.definicion.peso}
-                tipoMeta={a.definicion.tipoMeta}
-                valorObjetivo={a.valorObjetivo}
-                valorBaseline={a.valorBaseline}
-                cumplimiento={cumpl?.cumplimiento ?? 0}
-                tieneRegistros={cumpl?.tieneRegistros ?? false}
-                registros={a.registros}
-                semanaActual={semana}
-                anioActual={anio}
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[auto_1fr]">
+            <div className="flex justify-center rounded-2xl border bg-card p-4">
+              <VelocimetroPuntos
+                puntos={progreso.puntosAcumulados}
+                tope={progreso.puntosTope}
               />
-            );
-          })}
-        </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ResumenCard
+                icono={<CheckCircle2 className="h-4 w-4" />}
+                color="text-success"
+                label="Aprobados"
+                valor={progreso.cantidadPorEstado.aprobado}
+              />
+              <ResumenCard
+                icono={<Clock className="h-4 w-4" />}
+                color="text-warning"
+                label="En revision"
+                valor={progreso.cantidadPorEstado.enRevision}
+              />
+              <ResumenCard
+                icono={<AlertCircle className="h-4 w-4" />}
+                color="text-muted-foreground"
+                label="Pendientes"
+                valor={progreso.cantidadPorEstado.pendiente}
+              />
+              <ResumenCard
+                icono={<Clock className="h-4 w-4" />}
+                color="text-destructive"
+                label="Rechazados"
+                valor={progreso.cantidadPorEstado.rechazado}
+              />
+            </div>
+          </div>
+
+          <ListaHitos
+            titulo="Hitos semanales"
+            subtitulo={`Esta semana (${progreso.periodo.semana}) — se cierran cada domingo`}
+            hitos={progreso.semanales}
+            semanaActual={progreso.periodo.semana}
+          />
+          <ListaHitos
+            titulo="Hitos mensuales"
+            subtitulo="Se cierran al final del mes"
+            hitos={progreso.mensuales}
+            semanaActual={progreso.periodo.semana}
+          />
+        </>
       )}
+    </div>
+  );
+}
+
+function ResumenCard({
+  icono,
+  color,
+  label,
+  valor,
+}: {
+  icono: React.ReactNode;
+  color: string;
+  label: string;
+  valor: number;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-3">
+      <div className={`shrink-0 ${color}`}>{icono}</div>
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold tabular-nums leading-none">
+          {valor}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+      </div>
     </div>
   );
 }

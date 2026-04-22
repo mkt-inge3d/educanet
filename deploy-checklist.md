@@ -3,7 +3,7 @@
 ## Supabase
 - [ ] Proyecto creado
 - [ ] SQLs aplicados: auth-sync.sql, rls-policies.sql, storage-policies.sql
-- [ ] Buckets creados: certificados (privado), avatares (publico), cursos (publico)
+- [ ] Buckets creados: certificados (privado), avatares (publico), cursos (publico), kpi-evidencias (privado)
 - [ ] Usuarios iniciales creados con roles asignados
 - [ ] Auth Settings: Site URL y Redirect URLs actualizados al dominio de produccion
 - [ ] Replication activado para tabla Notificacion (realtime)

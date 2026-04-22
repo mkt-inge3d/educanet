@@ -14,6 +14,7 @@ export default async function AdminKpisPage() {
     include: {
       area: { select: { nombre: true } },
       kpiDefiniciones: {
+        where: { frecuencia: null },
         orderBy: [{ activa: "desc" }, { orden: "asc" }],
       },
       _count: { select: { users: true } },
@@ -31,7 +32,7 @@ export default async function AdminKpisPage() {
       </div>
 
       {puestos.map((p) => {
-        const total = p.kpiDefiniciones.reduce((s, d) => s + d.peso, 0);
+        const total = p.kpiDefiniciones.reduce((s, d) => s + (d.peso ?? 0), 0);
         const pesoOk = total === 100;
         return (
           <Card key={p.id} className="p-5">

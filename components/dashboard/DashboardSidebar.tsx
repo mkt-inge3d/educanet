@@ -18,6 +18,7 @@ import {
   Heart,
   CheckSquare,
   Users,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -55,6 +56,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
       { label: "Compromisos", href: "/compromisos", icon: CheckSquare },
       { label: "Mi equipo", href: "/mi-equipo", icon: Users, soloJefe: true },
+      { label: "Validacion KPIs", href: "/mi-equipo/validacion-kpis", icon: ClipboardCheck, soloJefe: true },
       // Ocultos durante el piloto (redundantes con Mi progreso):
       // { label: "Mi carrera", href: "/mi-carrera", icon: TrendingUp },
       // { label: "Desempeno", href: "/desempeno", icon: LineChart },

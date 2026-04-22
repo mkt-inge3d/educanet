@@ -138,12 +138,12 @@ export async function cerrarMesKpis(input: {
 
     const valorConsolidado = consolidarRegistros(
       asig.registros,
-      asig.definicion.tipoMeta
+      asig.definicion.tipoMeta!
     );
     const cumplIndividual = calcularCumplimientoIndividual(
       valorConsolidado,
       asig.valorObjetivo,
-      asig.definicion.tipoMeta
+      asig.definicion.tipoMeta!
     );
 
     const superoMeta = cumplIndividual > 100 && asig.definicion.permiteSupera;
@@ -152,7 +152,7 @@ export async function cerrarMesKpis(input: {
     const puntosBase = Math.floor(
       (Math.min(100, cumplIndividual) / 100) *
         MAX_PUNTOS_KPIS_MES *
-        (asig.definicion.peso / 100)
+        ((asig.definicion.peso ?? 0) / 100)
     );
     const bonus = Math.floor(puntosBase * (bonusPct / 100));
     const puntosTotal = puntosBase + bonus;

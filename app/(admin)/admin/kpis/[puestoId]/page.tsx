@@ -20,12 +20,15 @@ export default async function AdminKpisPuestoPage({
     where: { id: puestoId },
     include: {
       area: { select: { nombre: true } },
-      kpiDefiniciones: { orderBy: { orden: "asc" } },
+      kpiDefiniciones: {
+        where: { frecuencia: null },
+        orderBy: { orden: "asc" },
+      },
     },
   });
   if (!puesto) notFound();
 
-  const total = puesto.kpiDefiniciones.reduce((s, d) => s + d.peso, 0);
+  const total = puesto.kpiDefiniciones.reduce((s, d) => s + (d.peso ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -57,9 +60,9 @@ export default async function AdminKpisPuestoPage({
             codigo: d.codigo,
             nombre: d.nombre,
             descripcion: d.descripcion,
-            unidad: d.unidad,
-            peso: d.peso,
-            tipoMeta: d.tipoMeta,
+            unidad: d.unidad ?? "",
+            peso: d.peso ?? 0,
+            tipoMeta: (d.tipoMeta ?? "ABSOLUTA") as NonNullable<typeof d.tipoMeta>,
             valorObjetivoDefault: d.valorObjetivoDefault,
             bonusPorcentaje: d.bonusPorcentaje,
             activa: d.activa,

@@ -49,3 +49,36 @@ USING (
   bucket_id = 'avatares'
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
+
+-- BUCKET: kpi-evidencias (privado)
+-- Path: kpi-evidencias/{userId}/{instanciaId}.{ext}
+-- Subir solo el dueño. Leer el dueño + admin/RRHH/jefe (jefe via service role).
+
+CREATE POLICY "Usuarios pueden subir su propia evidencia KPI"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'kpi-evidencias'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Usuarios pueden actualizar su propia evidencia KPI"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'kpi-evidencias'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Usuarios pueden ver su propia evidencia KPI"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'kpi-evidencias'
+  AND (
+    (storage.foldername(name))[1] = auth.uid()::text
+    OR public.is_admin_or_rrhh()
+  )
+);
+-- Nota: El visor del jefe usa URL firmada generada con SERVICE_ROLE,
+-- por eso no es necesario una policy explicita para "jefe del area".

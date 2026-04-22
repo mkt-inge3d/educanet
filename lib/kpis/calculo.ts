@@ -84,25 +84,27 @@ export async function calcularCumplimientoKpis(params: {
   const cumplimientos: CumplimientoKpi[] = asignaciones.map((asig) => {
     const valorActual = consolidarRegistros(
       asig.registros,
-      asig.definicion.tipoMeta
+      asig.definicion.tipoMeta!
     );
     const cumplimiento = calcularCumplimientoIndividual(
       valorActual,
       asig.valorObjetivo,
-      asig.definicion.tipoMeta
+      asig.definicion.tipoMeta!
     );
     const puntosProyectados = Math.min(
-      MAX_PUNTOS_KPIS_MES * (asig.definicion.peso / 100),
-      (cumplimiento / 100) * MAX_PUNTOS_KPIS_MES * (asig.definicion.peso / 100)
+      MAX_PUNTOS_KPIS_MES * ((asig.definicion.peso ?? 0) / 100),
+      (cumplimiento / 100) *
+        MAX_PUNTOS_KPIS_MES *
+        ((asig.definicion.peso ?? 0) / 100)
     );
     return {
       definicionId: asig.definicionId,
       asignacionId: asig.id,
       codigo: asig.definicion.codigo,
       nombre: asig.definicion.nombre,
-      unidad: asig.definicion.unidad,
-      peso: asig.definicion.peso,
-      tipoMeta: asig.definicion.tipoMeta,
+      unidad: asig.definicion.unidad ?? "",
+      peso: asig.definicion.peso ?? 0,
+      tipoMeta: asig.definicion.tipoMeta!,
       valorActual,
       valorObjetivo: asig.valorObjetivo,
       cumplimiento,

@@ -61,6 +61,19 @@ enum TipoMetaKpi {
   BINARIA
 }
 
+enum FrecuenciaKpi {
+  SEMANAL
+  MENSUAL
+}
+
+enum EstadoKpiInstancia {
+  PENDIENTE
+  EN_REVISION
+  APROBADO
+  RECHAZADO
+  NO_APLICA
+}
+
 enum TipoRango {
   BRONCE
   PLATA
@@ -79,6 +92,7 @@ enum TipoEventoGamificacion {
   LIKE_RECIBIDO
   KPI_MES_CUMPLIDO
   KPIS_MES_TOTAL
+  KPI_HITO_APROBADO
   COMPROMISO_CUMPLIDO
   RECONOCIMIENTO_RECIBIDO
   MISION_COMPLETADA
@@ -200,6 +214,10 @@ model User {
   kpiRegistros        KpiRegistroSemanal[]
   rangosMensuales     RangoMensual[]
   eventosGamificacion EventoGamificacion[]
+
+  hitosKpiAsignaciones KpiAsignacionMes[] @relation("HitosKpiUsuario")
+  hitosKpiConfigurados KpiAsignacionMes[] @relation("HitosKpiConfigurador")
+  validacionesHitosKpi KpiInstancia[]     @relation("ValidacionesHitosKpi")
 
   reconocimientosDados     Reconocimiento[]  @relation("ReconocimientosDados")
   reconocimientosRecibidos Reconocimiento[]  @relation("ReconocimientosRecibidos")
@@ -604,28 +622,87 @@ model CursoRelacionado {
 }
 
 model PuestoKpiDefinicion {
-  id                   String      @id @default(cuid())
+  id                   String         @id @default(cuid())
   puestoId             String
   codigo               String
   nombre               String
-  descripcion          String      @db.Text
-  unidad               String
-  peso                 Int
-  tipoMeta             TipoMetaKpi
+  descripcion          String         @db.Text
+  // Modelo nuevo de hitos discretos validados con evidencia
+  frecuencia           FrecuenciaKpi?
+  puntos               Int?
+  puntosMaxMes         Int?
+  requiereEvidencia    Boolean        @default(true)
+  esCondicional        Boolean        @default(false)
+  cantidadMaxMes       Int?
+  // Legacy: mediciones continuas (deprecated, mantenidos para histórico)
+  unidad               String?
+  peso                 Int?
+  tipoMeta             TipoMetaKpi?
   valorObjetivoDefault Float?
-  permiteSupera        Boolean     @default(true)
-  bonusPorcentaje      Int         @default(15)
-  activa               Boolean     @default(true)
-  orden                Int         @default(0)
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  permiteSupera        Boolean        @default(true)
+  bonusPorcentaje      Int            @default(15)
+  activa               Boolean        @default(true)
+  orden                Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
-  puesto            Puesto          @relation(fields: [puestoId], references: [id], onDelete: Cascade)
+  puesto            Puesto             @relation(fields: [puestoId], references: [id], onDelete: Cascade)
   asignaciones      KpiAsignacion[]
+  asignacionesMes   KpiAsignacionMes[]
   misionesAsociadas Mision[]
 
   @@unique([puestoId, codigo])
   @@index([puestoId])
+}
+
+model KpiAsignacionMes {
+  id               String    @id @default(cuid())
+  definicionId     String
+  userId           String
+  periodoMes       Int
+  periodoAnio      Int
+  noAplica         Boolean   @default(false)
+  motivoNoAplica   String?
+  puntosAjustados  Int?
+  cantidadMes      Int?
+  configuradoPorId String?
+  configuradoEn    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  definicion     PuestoKpiDefinicion @relation(fields: [definicionId], references: [id], onDelete: Restrict)
+  user           User                @relation("HitosKpiUsuario", fields: [userId], references: [id], onDelete: Cascade)
+  configuradoPor User?               @relation("HitosKpiConfigurador", fields: [configuradoPorId], references: [id])
+  instancias     KpiInstancia[]
+
+  @@unique([definicionId, userId, periodoMes, periodoAnio])
+  @@index([userId, periodoAnio, periodoMes])
+}
+
+model KpiInstancia {
+  id                   String             @id @default(cuid())
+  asignacionMesId      String
+  semanaDelAnio        Int?
+  numeroOcurrencia     Int                @default(1)
+  estado               EstadoKpiInstancia @default(PENDIENTE)
+  evidenciaPath        String?
+  evidenciaTipo        String?
+  comentarioEmpleado   String?            @db.Text
+  comentarioRevisor    String?            @db.Text
+  fechaReportado       DateTime?
+  fechaValidado        DateTime?
+  validadoPorId        String?
+  puntosOtorgados      Int                @default(0)
+  eventoGamificacionId String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  asignacionMes KpiAsignacionMes @relation(fields: [asignacionMesId], references: [id], onDelete: Cascade)
+  validadoPor   User?            @relation("ValidacionesHitosKpi", fields: [validadoPorId], references: [id])
+
+  @@unique([asignacionMesId, semanaDelAnio, numeroOcurrencia])
+  @@index([estado])
+  @@index([asignacionMesId])
 }
 
 model KpiAsignacion {
