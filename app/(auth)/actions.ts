@@ -21,19 +21,28 @@ export async function loginAction(
   const headersList = await headers();
   const ip = getClientIp(headersList);
 
-  const rl = checkRateLimit(ip, loginLimiter);
-  if (!rl.success) {
-    return { error: "Demasiados intentos. Espera un momento antes de intentar de nuevo." };
-  }
-
   const raw = {
     email: formData.get("email"),
     password: formData.get("password"),
   };
+  const valuesPreservados: Record<string, string> = {
+    email: (raw.email as string) ?? "",
+  };
+
+  const rl = checkRateLimit(ip, loginLimiter);
+  if (!rl.success) {
+    return {
+      error: "Demasiados intentos. Espera un momento antes de intentar de nuevo.",
+      values: valuesPreservados,
+    };
+  }
 
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    return {
+      error: parsed.error.issues[0].message,
+      values: valuesPreservados,
+    };
   }
 
   const supabase = await createClient();
@@ -43,7 +52,10 @@ export async function loginAction(
   });
 
   if (error) {
-    return { error: "Correo o contrasena incorrectos" };
+    return {
+      error: "Correo o contrasena incorrectos",
+      values: valuesPreservados,
+    };
   }
 
   const redirectTo = formData.get("redirectTo") as string | null;

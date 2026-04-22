@@ -43,6 +43,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           placeholder="tu@empresa.com"
           autoComplete="email"
           required
+          defaultValue={state.values?.email ?? ""}
         />
       </motion.div>
 

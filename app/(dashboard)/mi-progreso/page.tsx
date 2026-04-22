@@ -6,7 +6,7 @@ import { puedeResponderEncuesta } from "@/lib/encuestas/queries";
 import { prisma } from "@/lib/prisma";
 import { RangoActualDestacado } from "@/components/mi-progreso/RangoActualDestacado";
 import { BreakdownXPFuentes } from "@/components/mi-progreso/BreakdownXPFuentes";
-import { CumplimientoKPIsResumen } from "@/components/mi-progreso/CumplimientoKPIsResumen";
+import { CardHitosKpiResumen } from "@/components/mi-progreso/CardHitosKpiResumen";
 import { AccionesSugeridas } from "@/components/mi-progreso/AccionesSugeridas";
 import { MisionesSemana } from "@/components/mi-progreso/MisionesSemana";
 import { CardEncuestaSemanal } from "@/components/encuestas/CardEncuestaSemanal";
@@ -49,11 +49,7 @@ async function BreakdownYCumplimiento({
           total={progreso.puntosTotales}
           multiplicadorAplicado={progreso.multiplicadorAplicado}
         />
-        <CumplimientoKPIsResumen
-          cumplimientos={progreso.cumplimientos}
-          cumplimientoGlobal={progreso.cumplimientoKpis}
-          hayDatosSuficientes={progreso.hayDatosSuficientesKpis}
-        />
+        <CardHitosKpiResumen userId={userId} mes={mes} anio={anio} />
       </div>
       <AccionesSugeridas progreso={progreso} />
     </>
