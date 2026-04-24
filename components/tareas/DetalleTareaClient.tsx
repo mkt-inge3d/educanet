@@ -45,6 +45,8 @@ import {
   reportarBloqueoExterno,
 } from "@/lib/tareas/actions";
 import { datosTarea } from "@/lib/tareas/tarea-datos";
+import { BadgeNegocio } from "./SelectorNegocio";
+import { ModalEditarTarea } from "./ModalEditarTarea";
 import type { Prisma } from "@prisma/client";
 
 type TareaDetalle = Prisma.TareaInstanciaGetPayload<{
@@ -165,10 +167,16 @@ export function DetalleTareaClient({
               {tarea.origen === "ASIGNADA_JEFE" ? "Asignada por jefe" : "Ad-hoc"}
             </Badge>
           )}
+          <BadgeNegocio negocio={tarea.negocio} />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {datos.nombre}
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {datos.nombre}
+          </h1>
+          {tarea.estado !== "COMPLETADA" && tarea.estado !== "OMITIDA" && (
+            <ModalEditarTarea tarea={tarea} />
+          )}
+        </div>
         {tarea.workflowInstancia && (
           <p className="text-sm text-muted-foreground">
             Workflow: <strong className="text-foreground">{tarea.workflowInstancia.nombre}</strong>

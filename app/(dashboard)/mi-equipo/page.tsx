@@ -5,10 +5,6 @@ import { AlertTriangle, CheckCircle2, ChevronRight, Lock } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { mesActual } from "@/lib/gamificacion/periodo";
 import { obtenerPilotoContextoPorArea } from "@/lib/piloto/queries";
-import {
-  obtenerCompromisosPendientesValidacion,
-  obtenerPropuestasPorAprobar,
-} from "@/lib/compromisos/queries";
 import { obtenerDashboardJefe } from "@/lib/jefe/queries";
 import {
   obtenerWorkflowsActivos,
@@ -16,8 +12,6 @@ import {
 } from "@/lib/tareas/queries";
 import { obtenerPanelEquipoJefe } from "@/lib/tareas/queries-jefe";
 import { AvisoAnonimizado } from "@/components/jefe/AvisoAnonimizado";
-import { PanelValidacionJefe } from "@/components/compromisos/PanelValidacionJefe";
-import { PanelPropuestasJefe } from "@/components/compromisos/PanelPropuestasJefe";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -43,26 +37,21 @@ export default async function MiEquipoPage() {
 
   const { mes, anio } = mesActual();
 
-  // Data del equipo (tareas + compromisos)
+  // Data del equipo
   let miembros: Awaited<ReturnType<typeof obtenerPanelEquipoJefe>> = [];
   let workflows: Awaited<ReturnType<typeof obtenerWorkflowsActivos>> = [];
   let plantillas: Awaited<ReturnType<typeof obtenerPlantillasActivas>> = [];
   let dashboard: Awaited<ReturnType<typeof obtenerDashboardJefe>>;
-  let pendientesValidar: Awaited<ReturnType<typeof obtenerCompromisosPendientesValidacion>> = [];
-  let propuestas: Awaited<ReturnType<typeof obtenerPropuestasPorAprobar>> = [];
   let ctxPiloto: Awaited<ReturnType<typeof obtenerPilotoContextoPorArea>>;
 
   try {
-    [miembros, workflows, plantillas, dashboard, pendientesValidar, propuestas, ctxPiloto] =
-      await Promise.all([
-        obtenerPanelEquipoJefe({ areaId: user.areaId, jefeId: user.id, mes, anio }),
-        obtenerWorkflowsActivos(user.areaId),
-        obtenerPlantillasActivas(),
-        obtenerDashboardJefe({ jefeId: user.id, mes, anio }),
-        obtenerCompromisosPendientesValidacion(user.areaId),
-        obtenerPropuestasPorAprobar(user.areaId),
-        obtenerPilotoContextoPorArea(user.areaId),
-      ]);
+    [miembros, workflows, plantillas, dashboard, ctxPiloto] = await Promise.all([
+      obtenerPanelEquipoJefe({ areaId: user.areaId, jefeId: user.id, mes, anio }),
+      obtenerWorkflowsActivos(user.areaId),
+      obtenerPlantillasActivas(),
+      obtenerDashboardJefe({ jefeId: user.id, mes, anio }),
+      obtenerPilotoContextoPorArea(user.areaId),
+    ]);
   } catch (error) {
     console.warn(
       "[mi-equipo] Error cargando panel del equipo:",
@@ -221,17 +210,6 @@ export default async function MiEquipoPage() {
           })}
         </div>
       </section>
-
-      {/* Compromisos operativos del jefe — mantenemos lo importante */}
-      {(propuestas.length > 0 || pendientesValidar.length > 0) && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Compromisos por revisar</h2>
-          {propuestas.length > 0 && <PanelPropuestasJefe propuestas={propuestas} />}
-          {pendientesValidar.length > 0 && (
-            <PanelValidacionJefe pendientes={pendientesValidar} />
-          )}
-        </section>
-      )}
 
       {/* Workflows activos (compacto) */}
       {workflows.length > 0 && (

@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { crearTareaAdHoc } from "@/lib/tareas/actions";
+import { SelectorNegocio } from "./SelectorNegocio";
+import type { Negocio } from "@prisma/client";
 
 export function ModalNuevaAdHoc() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export function ModalNuevaAdHoc() {
   const [puntos, setPuntos] = useState(5);
   const [tiempoMin, setTiempoMin] = useState(15);
   const [tiempoMax, setTiempoMax] = useState(45);
+  const [negocio, setNegocio] = useState<Negocio | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
@@ -38,6 +41,7 @@ export function ModalNuevaAdHoc() {
     setPuntos(5);
     setTiempoMin(15);
     setTiempoMax(45);
+    setNegocio(null);
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -54,6 +58,7 @@ export function ModalNuevaAdHoc() {
         puntosBaseAdHoc: puntos,
         tiempoEstimadoMinAdHoc: tiempoMin,
         tiempoEstimadoMaxAdHoc: tiempoMax,
+        negocio,
       });
 
       if (!res.success) {
@@ -107,6 +112,11 @@ export function ModalNuevaAdHoc() {
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="neg">Negocio / marca</Label>
+            <SelectorNegocio id="neg" value={negocio} onChange={setNegocio} />
           </div>
 
           <div className="grid grid-cols-3 gap-3">

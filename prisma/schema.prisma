@@ -991,6 +991,16 @@ enum OrigenTarea {
   AUTO_ASIGNADA   // el empleado la creó por su cuenta (requiere validación)
 }
 
+enum Negocio {
+  ANSYS
+  AUTODESK_MFG
+  AUTODESK_AEC
+  ORACLE
+  INGE3D
+  LYRACODE
+  CURSOS
+}
+
 model CatalogoTarea {
   id                  String           @id @default(cuid())
   codigo              String           @unique
@@ -1130,6 +1140,9 @@ model TareaInstancia {
   ejecutadaPorOtro          Boolean              @default(false)
   ejecutadaRealmenteId      String?
   motivoAyuda               String?
+
+  // Negocio / marca al que responde la tarea
+  negocio                   Negocio?
 
   // Validación del jefe (para ad-hoc del empleado)
   requiereValidacionJefe    Boolean              @default(false)

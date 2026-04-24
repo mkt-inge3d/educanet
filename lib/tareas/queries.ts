@@ -14,7 +14,11 @@ export async function obtenerTareasUsuario(userId: string) {
       estado: { notIn: ["COMPLETADA", "OMITIDA"] },
     },
     include: {
-      catalogoTarea: true,
+      catalogoTarea: {
+        include: {
+          checklistItems: { orderBy: { orden: "asc" } },
+        },
+      },
       workflowInstancia: { select: { id: true, nombre: true, fechaHito: true, contextoMarca: true } },
       checklistMarcados: true,
     },

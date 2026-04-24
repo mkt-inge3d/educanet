@@ -4,6 +4,8 @@ import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { datosTarea } from "@/lib/tareas/tarea-datos";
+import { infoNegocio } from "@/lib/tareas/negocios";
+import { BadgeNegocio } from "@/components/tareas/SelectorNegocio";
 import { cn } from "@/lib/utils";
 import type { EstadoTareaInstancia, Prisma } from "@prisma/client";
 
@@ -95,6 +97,7 @@ export function KanbanMiembro({ tareas }: { tareas: Tarea[] }) {
 
 function TareaItem({ tarea }: { tarea: Tarea }) {
   const datos = datosTarea(tarea);
+  const negocioInfo = infoNegocio(tarea.negocio);
   const origen =
     tarea.origen === "ASIGNADA_JEFE"
       ? "Asignada por vos"
@@ -104,7 +107,12 @@ function TareaItem({ tarea }: { tarea: Tarea }) {
 
   return (
     <Link href={`/tareas/${tarea.id}`}>
-      <Card className="transition-colors hover:border-primary/40">
+      <Card
+        className={cn(
+          "transition-colors hover:border-primary/40",
+          negocioInfo && `border-l-4 ${negocioInfo.borderClass}`,
+        )}
+      >
         <CardContent className="space-y-1.5 p-3">
           <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
             <span className="uppercase tracking-wider">{origen}</span>
@@ -126,6 +134,7 @@ function TareaItem({ tarea }: { tarea: Tarea }) {
               <Clock className="mr-0.5 h-2.5 w-2.5" />
               {datos.tiempoMinimoMin}-{datos.tiempoMaximoMin}m
             </Badge>
+            <BadgeNegocio negocio={tarea.negocio} compact />
             {tarea.estado === "COMPLETADA" && tarea.puntosOtorgados > 0 && (
               <span className="text-[10px] text-success">
                 +{tarea.puntosOtorgados} otorgados

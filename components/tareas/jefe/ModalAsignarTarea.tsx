@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { asignarTareaDirecta } from "@/lib/tareas/actions";
+import { SelectorNegocio } from "@/components/tareas/SelectorNegocio";
+import type { Negocio } from "@prisma/client";
 
 type CatalogoItem = {
   id: string;
@@ -61,6 +63,7 @@ export function ModalAsignarTarea({
   const [fechaInicio, setFechaInicio] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [negocio, setNegocio] = useState<Negocio | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
@@ -72,6 +75,7 @@ export function ModalAsignarTarea({
     setTiempoMin(15);
     setTiempoMax(45);
     setFechaInicio(new Date().toISOString().slice(0, 10));
+    setNegocio(null);
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -89,6 +93,7 @@ export function ModalAsignarTarea({
       const res = await asignarTareaDirecta({
         asignadoAId,
         fechaEstimadaInicio: new Date(fechaInicio),
+        negocio,
         ...(modo === "catalogo"
           ? { catalogoTareaId: catalogoId }
           : {
@@ -231,15 +236,21 @@ export function ModalAsignarTarea({
             </>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="fi">Fecha de inicio</Label>
-            <Input
-              id="fi"
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="fi">Fecha de inicio</Label>
+              <Input
+                id="fi"
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="neg-asig">Negocio</Label>
+              <SelectorNegocio id="neg-asig" value={negocio} onChange={setNegocio} />
+            </div>
           </div>
 
           <DialogFooter>

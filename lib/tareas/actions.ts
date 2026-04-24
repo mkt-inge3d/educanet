@@ -441,6 +441,7 @@ export async function asignarTareaDirecta(input: {
   puntosBaseAdHoc?: number;
   tiempoEstimadoMinAdHoc?: number;
   tiempoEstimadoMaxAdHoc?: number;
+  negocio?: import("@prisma/client").Negocio | null;
   fechaEstimadaInicio: Date;
   fechaEstimadaFin?: Date;
 }): Promise<Result<{ tareaId: string }>> {
@@ -490,6 +491,7 @@ export async function asignarTareaDirecta(input: {
           ? null
           : input.tiempoEstimadoMinAdHoc ?? 30,
         tiempoEstimadoMaxAdHoc: input.catalogoTareaId ? null : tiempoMax,
+        negocio: input.negocio ?? null,
         fechaEstimadaInicio: input.fechaEstimadaInicio,
         fechaEstimadaFin: fin,
         estado: "PENDIENTE",
@@ -524,6 +526,7 @@ export async function crearTareaAdHoc(input: {
   puntosBaseAdHoc: number;
   tiempoEstimadoMinAdHoc: number;
   tiempoEstimadoMaxAdHoc: number;
+  negocio?: import("@prisma/client").Negocio | null;
   fechaEstimadaInicio?: Date;
 }): Promise<Result<{ tareaId: string }>> {
   try {
@@ -559,6 +562,7 @@ export async function crearTareaAdHoc(input: {
         puntosBaseAdHoc: input.puntosBaseAdHoc,
         tiempoEstimadoMinAdHoc: input.tiempoEstimadoMinAdHoc,
         tiempoEstimadoMaxAdHoc: input.tiempoEstimadoMaxAdHoc,
+        negocio: input.negocio ?? null,
         fechaEstimadaInicio: inicio,
         fechaEstimadaFin: fin,
         estado: "PENDIENTE",
@@ -739,6 +743,95 @@ export async function crearWorkflow(
     revalidatePath("/mi-equipo");
     revalidatePath("/admin/workflows");
     return { success: true, data: result };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
+// ============================================================================
+// Editar tarea (empleado o jefe): notas, fechas, negocio; + nombre/puntos para ad-hoc
+// ============================================================================
+export async function editarTareaInstancia(input: {
+  tareaId: string;
+  negocio?: import("@prisma/client").Negocio | null;
+  nombreAdHoc?: string;
+  descripcionAdHoc?: string;
+  puntosBaseAdHoc?: number;
+  tiempoEstimadoMinAdHoc?: number;
+  tiempoEstimadoMaxAdHoc?: number;
+  fechaEstimadaInicio?: Date;
+  fechaEstimadaFin?: Date;
+  notasEjecutor?: string;
+}): Promise<Result> {
+  try {
+    const user = await requireAuth();
+    const tarea = await prisma.tareaInstancia.findUnique({
+      where: { id: input.tareaId },
+      include: { catalogoTarea: true },
+    });
+    if (!tarea) return { success: false, error: "Tarea no encontrada" };
+
+    const esPropia =
+      tarea.asignadoAId === user.id || tarea.ejecutadaRealmenteId === user.id;
+    const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+    const esJefe =
+      user.puesto?.nombre?.startsWith("Jefe") &&
+      (await prisma.user.findUnique({ where: { id: tarea.asignadoAId } }))
+        ?.areaId === user.areaId;
+    if (!esPropia && !esAdmin && !esJefe) {
+      return { success: false, error: "Sin permisos para editar" };
+    }
+    if (tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA") {
+      return { success: false, error: "No se puede editar una tarea cerrada" };
+    }
+
+    const esAdHoc = !tarea.catalogoTareaId;
+    const data: Record<string, unknown> = {};
+
+    if (input.negocio !== undefined) data.negocio = input.negocio;
+    if (input.notasEjecutor !== undefined) data.notasEjecutor = input.notasEjecutor;
+    if (input.fechaEstimadaInicio) data.fechaEstimadaInicio = input.fechaEstimadaInicio;
+    if (input.fechaEstimadaFin) data.fechaEstimadaFin = input.fechaEstimadaFin;
+
+    // Campos ad-hoc: solo si la tarea es ad-hoc
+    if (esAdHoc) {
+      if (input.nombreAdHoc !== undefined) {
+        if (!input.nombreAdHoc.trim()) {
+          return { success: false, error: "El nombre no puede estar vacío" };
+        }
+        data.nombreAdHoc = input.nombreAdHoc.trim();
+      }
+      if (input.descripcionAdHoc !== undefined) {
+        data.descripcionAdHoc = input.descripcionAdHoc.trim() || null;
+      }
+      if (input.puntosBaseAdHoc !== undefined) {
+        const max = esJefe || esAdmin ? 50 : 20;
+        if (input.puntosBaseAdHoc < 1 || input.puntosBaseAdHoc > max) {
+          return {
+            success: false,
+            error: `Puntos entre 1 y ${max}`,
+          };
+        }
+        data.puntosBaseAdHoc = input.puntosBaseAdHoc;
+      }
+      if (input.tiempoEstimadoMinAdHoc !== undefined) {
+        data.tiempoEstimadoMinAdHoc = input.tiempoEstimadoMinAdHoc;
+      }
+      if (input.tiempoEstimadoMaxAdHoc !== undefined) {
+        data.tiempoEstimadoMaxAdHoc = input.tiempoEstimadoMaxAdHoc;
+      }
+    }
+
+    await prisma.tareaInstancia.update({
+      where: { id: input.tareaId },
+      data,
+    });
+
+    revalidatePath("/tareas");
+    revalidatePath(`/tareas/${input.tareaId}`);
+    revalidatePath("/mi-equipo");
+    revalidatePath(`/mi-equipo/${tarea.asignadoAId}`);
+    return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }
