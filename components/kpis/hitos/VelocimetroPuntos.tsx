@@ -7,17 +7,20 @@ type Props = {
   tope: number;
 };
 
+/**
+ * Devuelve el color según el % de cumplimiento, usando los tokens de la
+ * paleta 2026 (HSL-components envueltos en hsl()).
+ */
 function colorPorPorcentaje(pct: number): string {
-  if (pct < 0.3) return "var(--destructive)";
-  if (pct < 0.7) return "var(--warning)";
-  return "var(--success)";
+  if (pct < 0.3) return "hsl(var(--destructive))";
+  if (pct < 0.7) return "hsl(var(--warning))";
+  return "hsl(var(--success))";
 }
 
 export function VelocimetroPuntos({ puntos, tope }: Props) {
   const pct = Math.max(0, Math.min(1, puntos / tope));
-  // Arco de 270 grados (medio circulo invertido + extra a cada lado)
-  const startAngle = 135; // grados
-  const endAngle = 405; // 135 + 270
+  const startAngle = 135;
+  const endAngle = 405;
   const sweepTotal = endAngle - startAngle;
   const sweepActual = sweepTotal * pct;
 
@@ -38,6 +41,7 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
   };
 
   const fill = colorPorPorcentaje(pct);
+  const filterId = "velocimetro-glow";
 
   return (
     <div className="flex flex-col items-center">
@@ -48,15 +52,27 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
           viewBox="0 0 220 180"
           className="overflow-visible"
         >
-          {/* Track */}
+          <defs>
+            {/* Glow sutil para el arco de progreso — estilo liquid glass */}
+            <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Track de fondo — tinte sutil */}
           <path
             d={arc(endAngle)}
-            stroke="var(--muted)"
+            stroke="hsl(var(--foreground) / 0.08)"
             strokeWidth={grosor}
             fill="none"
             strokeLinecap="round"
           />
-          {/* Progreso */}
+
+          {/* Progreso con glow */}
           {pct > 0 && (
             <motion.path
               d={arc(startAngle + sweepActual)}
@@ -64,11 +80,13 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
               strokeWidth={grosor}
               fill="none"
               strokeLinecap="round"
+              filter={`url(#${filterId})`}
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{ duration: 1.2, ease: "easeOut" }}
             />
           )}
+
           {/* Marcas (0, 250, 500, 750, 1000) */}
           {[0, 0.25, 0.5, 0.75, 1].map((m) => {
             const angulo = startAngle + sweepTotal * m;
@@ -82,7 +100,7 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
                 y1={cy + r1 * Math.sin(rad)}
                 x2={cx + r2 * Math.cos(rad)}
                 y2={cy + r2 * Math.sin(rad)}
-                stroke="var(--muted-foreground)"
+                stroke="hsl(var(--muted-foreground) / 0.5)"
                 strokeWidth={1.5}
               />
             );
@@ -90,7 +108,7 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pt-4">
           <motion.span
-            className="text-4xl font-bold tabular-nums"
+            className="text-4xl font-semibold tabular-nums tracking-tight"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -102,8 +120,8 @@ export function VelocimetroPuntos({ puntos, tope }: Props) {
       </div>
       <div className="mt-2 flex w-full max-w-[220px] justify-between px-2 text-[10px] text-muted-foreground">
         <span>0</span>
-        <span>500</span>
-        <span>1000</span>
+        <span>{Math.round(tope / 2)}</span>
+        <span>{tope}</span>
       </div>
     </div>
   );
