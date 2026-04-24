@@ -8,10 +8,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
   Circle,
   Clock,
-  ExternalLink,
   ListChecks,
   UserCheck,
   Users,
@@ -157,31 +155,25 @@ export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps)
       )}
     >
       <CardContent className="space-y-2 p-3">
-        {/* Encabezado */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <span>
-                {datos.esAdHoc
-                  ? tarea.origen === "ASIGNADA_JEFE"
-                    ? "Asignada por jefe"
-                    : "Ad-hoc"
-                  : LABEL_CATEGORIA[datos.categoria] ?? datos.categoria}
-              </span>
-              {wf?.contextoMarca && <span>· {wf.contextoMarca}</span>}
-            </div>
-            <h4 className="mt-0.5 text-sm font-semibold leading-tight line-clamp-2">
-              {datos.nombre}
-            </h4>
+        {/* Encabezado — todo el título es link al detalle */}
+        <Link
+          href={`/tareas/${tarea.id}`}
+          className="block space-y-0.5 rounded-sm transition-colors hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span>
+              {datos.esAdHoc
+                ? tarea.origen === "ASIGNADA_JEFE"
+                  ? "Asignada por jefe"
+                  : "Ad-hoc"
+                : LABEL_CATEGORIA[datos.categoria] ?? datos.categoria}
+            </span>
+            {wf?.contextoMarca && <span>· {wf.contextoMarca}</span>}
           </div>
-          <Link
-            href={`/tareas/${tarea.id}`}
-            className="flex-shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Ver detalle"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+          <h4 className="text-sm font-semibold leading-tight line-clamp-2">
+            {datos.nombre}
+          </h4>
+        </Link>
 
         {wf && (
           <p className="text-xs text-muted-foreground line-clamp-1">

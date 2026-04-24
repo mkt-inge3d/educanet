@@ -55,7 +55,6 @@ const sections: { title: string; items: NavItem[] }[] = [
       { label: "Mi progreso", href: "/mi-progreso", icon: Target },
       { label: "Mis tareas", href: "/tareas", icon: ClipboardCheck },
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
-      { label: "Mis hitos KPI", href: "/compromisos", icon: CheckSquare },
       { label: "Mi equipo", href: "/mi-equipo", icon: Users, soloJefe: true },
       { label: "Revisar hitos", href: "/mi-equipo/validacion-kpis", icon: ClipboardCheck, soloJefe: true },
       // Ocultos durante el piloto (redundantes con Mi progreso):

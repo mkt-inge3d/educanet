@@ -88,29 +88,48 @@ export async function obtenerEstadisticasTareasUsuario(params: {
   anio: number;
 }) {
   const { inicio, fin } = rangoMes(params.mes, params.anio);
+  const ownershipFilter = {
+    OR: [
+      { asignadoAId: params.userId },
+      { ejecutadaRealmenteId: params.userId },
+    ],
+  };
 
-  const tareas = await prisma.tareaInstancia.findMany({
+  // Completadas del mes (filtradas por completadaEn)
+  const completadasRaw = await prisma.tareaInstancia.findMany({
     where: {
-      OR: [{ asignadoAId: params.userId }, { ejecutadaRealmenteId: params.userId }],
+      ...ownershipFilter,
       completadaEn: { gte: inicio, lte: fin },
+      estado: "COMPLETADA",
     },
     include: { catalogoTarea: { select: { categoria: true } } },
   });
 
-  const completadas = tareas.filter((t) => t.estado === "COMPLETADA");
-  const aTiempo = completadas.filter((t) => t.puntosATiempo);
-  const ayudaCruzadaDada = completadas.filter(
+  const aTiempo = completadasRaw.filter((t) => t.puntosATiempo);
+  const ayudaCruzadaDada = completadasRaw.filter(
     (t) => t.ejecutadaRealmenteId === params.userId && t.asignadoAId !== params.userId,
   );
-  const bloqueosReportados = tareas.filter((t) => t.bloqueoExternoDesde !== null);
 
-  const tiempoTotalMin = completadas.reduce(
+  // Bloqueos activos (estado BLOQUEADA — no están cerradas aún)
+  const bloqueosActivos = await prisma.tareaInstancia.count({
+    where: { ...ownershipFilter, estado: "BLOQUEADA" },
+  });
+
+  // Bloqueos históricos: reportadas este mes (abiertas o cerradas)
+  const bloqueosReportadosEsteMes = await prisma.tareaInstancia.count({
+    where: {
+      ...ownershipFilter,
+      bloqueoExternoDesde: { gte: inicio, lte: fin },
+    },
+  });
+
+  const tiempoTotalMin = completadasRaw.reduce(
     (s, t) => s + (t.tiempoInvertidoMin ?? 0),
     0,
   );
 
   const porCategoria: Record<string, { count: number; tiempoMin: number }> = {};
-  for (const t of completadas) {
+  for (const t of completadasRaw) {
     const cat = t.catalogoTarea?.categoria ?? "COORDINACION_GENERAL";
     if (!porCategoria[cat]) porCategoria[cat] = { count: 0, tiempoMin: 0 };
     porCategoria[cat].count++;
@@ -118,11 +137,13 @@ export async function obtenerEstadisticasTareasUsuario(params: {
   }
 
   return {
-    totalCompletadas: completadas.length,
+    totalCompletadas: completadasRaw.length,
     aTiempo: aTiempo.length,
-    tasaATiempo: completadas.length > 0 ? (aTiempo.length / completadas.length) * 100 : 0,
+    tasaATiempo:
+      completadasRaw.length > 0 ? (aTiempo.length / completadasRaw.length) * 100 : 0,
     ayudaCruzadaDada: ayudaCruzadaDada.length,
-    bloqueosReportados: bloqueosReportados.length,
+    bloqueosActivos,
+    bloqueosReportados: bloqueosReportadosEsteMes,
     tiempoTotalHoras: Math.round((tiempoTotalMin / 60) * 10) / 10,
     porCategoria,
   };

@@ -1,18 +1,20 @@
 "use client";
 
 /**
- * Patrón inline editing para tareas.
+ * Patrón inline editing con save OPTIMISTIC.
  *
- * Click para entrar en edición. Enter/blur guardan. Escape cancela.
- * Mientras edita, el componente muestra un ring + pulse suave indicando
- * el estado activo.
+ * Flujo:
+ *   1. Click → entra en modo edit con ring + pulse violeta.
+ *   2. Enter/blur → sale del modo edit inmediatamente, actualiza displayValue
+ *      instant, y dispara onSave() en background (fire-and-forget).
+ *   3. Si onSave falla, rollback al valor anterior + toast error.
+ *   4. Si el prop `value` cambia desde el server (router.refresh), sincroniza.
  */
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
-  Loader2,
   Pencil,
   X,
 } from "lucide-react";
@@ -34,7 +36,7 @@ import type { Negocio } from "@prisma/client";
 type SaveResult = { success: true } | { success: false; error?: string };
 
 // ============================================================================
-// Texto inline (single line)
+// Texto inline (single line) - optimistic
 // ============================================================================
 export function InlineText({
   value,
@@ -50,10 +52,7 @@ export function InlineText({
   value: string;
   onSave: (nuevo: string) => Promise<SaveResult>;
   readOnly?: boolean;
-  /** Permite guardar string vacío. El onSave recibe "" y decide qué hacer
-   *  (útil para revertir a un valor default, ej. nombre del catálogo). */
   allowEmpty?: boolean;
-  /** Mensaje que aparece como hint cuando se vacía el campo en modo allowEmpty. */
   emptyHint?: string;
   placeholder?: string;
   className?: string;
@@ -62,11 +61,14 @@ export function InlineText({
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value);
-  const [isPending, startTransition] = useTransition();
+  const [display, setDisplay] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) setLocal(value);
+    if (!editing) {
+      setLocal(value);
+      setDisplay(value);
+    }
   }, [value, editing]);
 
   useEffect(() => {
@@ -78,28 +80,28 @@ export function InlineText({
 
   const commit = () => {
     const limpio = local.trim();
-    if (limpio === value.trim()) {
-      setEditing(false);
-      return;
-    }
+    setEditing(false);
+    if (limpio === display.trim()) return;
     if (!limpio && !allowEmpty) {
       toast.error("No puede quedar vacío");
-      setLocal(value);
-      setEditing(false);
+      setLocal(display);
       return;
     }
-    startTransition(async () => {
-      const res = await onSave(limpio);
+    // Optimistic: actualiza display inmediatamente
+    const anterior = display;
+    setDisplay(limpio);
+    // Fire-and-forget
+    onSave(limpio).then((res) => {
       if (!res.success) {
         toast.error(res.error ?? "Error al guardar");
-        setLocal(value);
+        setDisplay(anterior);
+        setLocal(anterior);
       }
-      setEditing(false);
     });
   };
 
   if (readOnly) {
-    return <span className={className}>{value}</span>;
+    return <span className={className}>{display}</span>;
   }
 
   if (!editing) {
@@ -113,7 +115,7 @@ export function InlineText({
         )}
         title="Click para editar"
       >
-        <span className="truncate">{value || placeholder}</span>
+        <span className="truncate">{display || placeholder}</span>
         <Pencil className="h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-60 group-focus:opacity-60" />
       </button>
     );
@@ -121,35 +123,29 @@ export function InlineText({
 
   return (
     <span className="inline-flex flex-col gap-1">
-      <span className="inline-flex items-center gap-1.5">
-        <Input
-          ref={inputRef}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              setLocal(value);
-              setEditing(false);
-            }
-          }}
-          maxLength={maxLength}
-          className={cn(
-            "ring-2 ring-primary/40 animate-[pulse-edit_1.5s_ease-in-out_infinite]",
-            inputClassName,
-          )}
-          style={{
-            minWidth: Math.max(180, (local.length || placeholder.length) * 8) + "px",
-          }}
-          disabled={isPending}
-        />
-        {isPending && (
-          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+      <Input
+        ref={inputRef}
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            setLocal(display);
+            setEditing(false);
+          }
+        }}
+        maxLength={maxLength}
+        className={cn(
+          "ring-2 ring-primary/40 animate-[pulse-edit_1.5s_ease-in-out_infinite]",
+          inputClassName,
         )}
-      </span>
+        style={{
+          minWidth: Math.max(180, (local.length || placeholder.length) * 8) + "px",
+        }}
+      />
       {allowEmpty && emptyHint && !local.trim() && (
         <span className="text-xs text-muted-foreground italic">{emptyHint}</span>
       )}
@@ -158,7 +154,7 @@ export function InlineText({
 }
 
 // ============================================================================
-// Textarea inline (multi-line)
+// Textarea inline - optimistic
 // ============================================================================
 export function InlineTextarea({
   value,
@@ -177,11 +173,14 @@ export function InlineTextarea({
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value);
-  const [isPending, startTransition] = useTransition();
+  const [display, setDisplay] = useState(value);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!editing) setLocal(value);
+    if (!editing) {
+      setLocal(value);
+      setDisplay(value);
+    }
   }, [value, editing]);
 
   useEffect(() => {
@@ -192,23 +191,24 @@ export function InlineTextarea({
   }, [editing]);
 
   const commit = () => {
-    if (local === value) {
-      setEditing(false);
-      return;
-    }
-    startTransition(async () => {
-      const res = await onSave(local);
+    setEditing(false);
+    if (local === display) return;
+    const anterior = display;
+    setDisplay(local);
+    onSave(local).then((res) => {
       if (!res.success) {
         toast.error(res.error ?? "Error al guardar");
-        setLocal(value);
+        setDisplay(anterior);
+        setLocal(anterior);
       }
-      setEditing(false);
     });
   };
 
   if (readOnly) {
     return (
-      <p className={className}>{value || <span className="italic opacity-60">{placeholder}</span>}</p>
+      <p className={className}>
+        {display || <span className="italic opacity-60">{placeholder}</span>}
+      </p>
     );
   }
 
@@ -225,7 +225,7 @@ export function InlineTextarea({
       >
         <span className="flex items-start justify-between gap-2">
           <span className="min-w-0 flex-1">
-            {value || (
+            {display || (
               <span className="italic text-muted-foreground/70">{placeholder}</span>
             )}
           </span>
@@ -244,7 +244,7 @@ export function InlineTextarea({
         onChange={(e) => setLocal(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
-            setLocal(value);
+            setLocal(display);
             setEditing(false);
           } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -252,7 +252,6 @@ export function InlineTextarea({
           }
         }}
         className="ring-2 ring-primary/40 animate-[pulse-edit_1.5s_ease-in-out_infinite]"
-        disabled={isPending}
       />
       <div className="flex items-center justify-end gap-2 text-xs">
         <span className="text-muted-foreground">Ctrl+Enter guarda · Esc cancela</span>
@@ -261,15 +260,14 @@ export function InlineTextarea({
           variant="ghost"
           size="sm"
           onClick={() => {
-            setLocal(value);
+            setLocal(display);
             setEditing(false);
           }}
-          disabled={isPending}
         >
           <X />
         </Button>
-        <Button type="button" size="sm" onClick={commit} disabled={isPending}>
-          {isPending ? <Loader2 className="animate-spin" /> : <Check />}
+        <Button type="button" size="sm" onClick={commit}>
+          <Check />
           Guardar
         </Button>
       </div>
@@ -278,7 +276,7 @@ export function InlineTextarea({
 }
 
 // ============================================================================
-// Date inline (calendar popover)
+// Date inline - optimistic
 // ============================================================================
 export function InlineDate({
   value,
@@ -292,25 +290,25 @@ export function InlineDate({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [display, setDisplay] = useState(value);
   const [local, setLocal] = useState(() => value.toISOString().slice(0, 10));
-  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    setDisplay(value);
     if (!open) setLocal(value.toISOString().slice(0, 10));
   }, [value, open]);
 
   const commit = () => {
     const nueva = new Date(local);
-    if (nueva.toISOString().slice(0, 10) === value.toISOString().slice(0, 10)) {
-      setOpen(false);
-      return;
-    }
-    startTransition(async () => {
-      const res = await onSave(nueva);
+    setOpen(false);
+    if (nueva.toISOString().slice(0, 10) === display.toISOString().slice(0, 10)) return;
+    const anterior = display;
+    setDisplay(nueva);
+    onSave(nueva).then((res) => {
       if (!res.success) {
         toast.error(res.error ?? "Error al guardar");
+        setDisplay(anterior);
       }
-      setOpen(false);
     });
   };
 
@@ -329,7 +327,7 @@ export function InlineDate({
             <CalendarIcon className="h-3 w-3 text-muted-foreground" />
             {label && <span className="text-muted-foreground">{label}:</span>}
             <span className="tabular-nums">
-              {value.toLocaleDateString("es")}
+              {display.toLocaleDateString("es")}
             </span>
             <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-60 group-focus:opacity-60" />
           </button>
@@ -350,12 +348,11 @@ export function InlineDate({
               variant="ghost"
               size="sm"
               onClick={() => setOpen(false)}
-              disabled={isPending}
             >
               Cancelar
             </Button>
-            <Button type="button" size="sm" onClick={commit} disabled={isPending}>
-              {isPending ? <Loader2 className="animate-spin" /> : <Check />}
+            <Button type="button" size="sm" onClick={commit}>
+              <Check />
               Guardar
             </Button>
           </div>
@@ -366,7 +363,7 @@ export function InlineDate({
 }
 
 // ============================================================================
-// Negocio inline (dropdown con chips de color)
+// Negocio inline - optimistic
 // ============================================================================
 export function InlineNegocio({
   value,
@@ -378,18 +375,24 @@ export function InlineNegocio({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const info = infoNegocio(value);
+  const [display, setDisplay] = useState<Negocio | null>(value);
+
+  useEffect(() => {
+    setDisplay(value);
+  }, [value]);
+
+  const info = infoNegocio(display);
 
   const seleccionar = (nuevo: Negocio | null) => {
-    if (nuevo === value) {
-      setOpen(false);
-      return;
-    }
-    startTransition(async () => {
-      const res = await onSave(nuevo);
-      if (!res.success) toast.error(res.error ?? "Error");
-      setOpen(false);
+    setOpen(false);
+    if (nuevo === display) return;
+    const anterior = display;
+    setDisplay(nuevo);
+    onSave(nuevo).then((res) => {
+      if (!res.success) {
+        toast.error(res.error ?? "Error");
+        setDisplay(anterior);
+      }
     });
   };
 
@@ -404,10 +407,9 @@ export function InlineNegocio({
               className,
             )}
             title="Click para asignar marca"
-            disabled={isPending}
           >
             {info ? (
-              <BadgeNegocio negocio={value} />
+              <BadgeNegocio negocio={display} />
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-1.5 py-px text-[10px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
@@ -415,15 +417,12 @@ export function InlineNegocio({
               </span>
             )}
             <ChevronDown className="h-3 w-3 text-muted-foreground opacity-50 transition-opacity group-hover:opacity-100" />
-            {isPending && (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            )}
           </button>
         }
       />
       <PopoverContent className="w-52 p-1" align="start">
         <div className="flex flex-col gap-0.5">
-          {value && (
+          {display && (
             <button
               type="button"
               onClick={() => seleccionar(null)}
@@ -440,12 +439,12 @@ export function InlineNegocio({
               onClick={() => seleccionar(n.codigo)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted",
-                n.codigo === value && "bg-muted font-medium",
+                n.codigo === display && "bg-muted font-medium",
               )}
             >
               <span className={cn("h-2 w-2 rounded-full", n.dotClass)} />
               <span>{n.label}</span>
-              {n.codigo === value && <Check className="ml-auto h-3 w-3 text-primary" />}
+              {n.codigo === display && <Check className="ml-auto h-3 w-3 text-primary" />}
             </button>
           ))}
         </div>
@@ -455,7 +454,7 @@ export function InlineNegocio({
 }
 
 // ============================================================================
-// Number inline (puntos, tiempos)
+// Number inline - optimistic
 // ============================================================================
 export function InlineNumber({
   value,
@@ -476,11 +475,14 @@ export function InlineNumber({
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(String(value));
-  const [isPending, startTransition] = useTransition();
+  const [display, setDisplay] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) setLocal(String(value));
+    if (!editing) {
+      setLocal(String(value));
+      setDisplay(value);
+    }
   }, [value, editing]);
 
   useEffect(() => {
@@ -492,30 +494,28 @@ export function InlineNumber({
 
   const commit = () => {
     const parsed = parseInt(local, 10);
+    setEditing(false);
     if (isNaN(parsed) || parsed < min || parsed > max) {
       toast.error(`Valor entre ${min} y ${max}`);
-      setLocal(String(value));
-      setEditing(false);
+      setLocal(String(display));
       return;
     }
-    if (parsed === value) {
-      setEditing(false);
-      return;
-    }
-    startTransition(async () => {
-      const res = await onSave(parsed);
+    if (parsed === display) return;
+    const anterior = display;
+    setDisplay(parsed);
+    onSave(parsed).then((res) => {
       if (!res.success) {
         toast.error(res.error ?? "Error");
-        setLocal(String(value));
+        setDisplay(anterior);
+        setLocal(String(anterior));
       }
-      setEditing(false);
     });
   };
 
   if (readOnly) {
     return (
       <span className={className}>
-        {value}
+        {display}
         {suffix}
       </span>
     );
@@ -533,7 +533,7 @@ export function InlineNumber({
         title="Click para editar"
       >
         <span>
-          {value}
+          {display}
           {suffix}
         </span>
         <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-60" />
@@ -556,12 +556,11 @@ export function InlineNumber({
             e.preventDefault();
             commit();
           } else if (e.key === "Escape") {
-            setLocal(String(value));
+            setLocal(String(display));
             setEditing(false);
           }
         }}
         className="w-20 h-7 text-sm ring-2 ring-primary/40 animate-[pulse-edit_1.5s_ease-in-out_infinite]"
-        disabled={isPending}
       />
       {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
     </span>
