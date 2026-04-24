@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -83,10 +83,15 @@ export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps)
         : [],
     [tarea.catalogoTarea],
   );
-  const marcadosMap = useMemo(() => {
+  const [localMarcados, setLocalMarcados] = useState<Map<string, boolean>>(() => {
     const m = new Map<string, boolean>();
     for (const x of tarea.checklistMarcados) m.set(x.plantillaItemId, x.marcado);
     return m;
+  });
+  useEffect(() => {
+    const m = new Map<string, boolean>();
+    for (const x of tarea.checklistMarcados) m.set(x.plantillaItemId, x.marcado);
+    setLocalMarcados(m);
   }, [tarea.checklistMarcados]);
   const overridesMap = useMemo(() => {
     const m = new Map<string, string | null>();
@@ -97,9 +102,9 @@ export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps)
   }, [tarea.checklistMarcados]);
 
   const totalItems = items.length;
-  const marcados = items.filter((i) => marcadosMap.get(i.id)).length;
+  const marcados = items.filter((i) => localMarcados.get(i.id)).length;
   const obligatoriosRestantes = items.filter(
-    (i) => i.obligatorio && !marcadosMap.get(i.id),
+    (i) => i.obligatorio && !localMarcados.get(i.id),
   ).length;
   const puedeCompletar =
     items.length > 0 &&
@@ -111,14 +116,18 @@ export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps)
   const requiereValidacion = tarea.requiereValidacionJefe && !tarea.validadaEn;
 
   const onToggleItem = (itemId: string, nuevo: boolean) => {
-    startTransition(async () => {
-      const res = await marcarChecklistItem({
-        tareaId: tarea.id,
-        itemPlantillaId: itemId,
-        marcado: nuevo,
-      });
-      if (!res.success) toast.error(res.error ?? "Error");
-      else router.refresh();
+    setLocalMarcados((prev) => new Map(prev).set(itemId, nuevo));
+    void marcarChecklistItem({
+      tareaId: tarea.id,
+      itemPlantillaId: itemId,
+      marcado: nuevo,
+    }).then((res) => {
+      if (!res.success) {
+        setLocalMarcados((prev) => new Map(prev).set(itemId, !nuevo));
+        toast.error(res.error ?? "Error al guardar");
+      } else {
+        router.refresh();
+      }
     });
   };
 
@@ -307,7 +316,7 @@ export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps)
                         descripcionOriginal={item.descripcion}
                         descripcionOverride={overridesMap.get(item.id) ?? null}
                         obligatorio={item.obligatorio}
-                        marcado={marcadosMap.get(item.id) ?? false}
+                        marcado={localMarcados.get(item.id) ?? false}
                         disabled={isPending}
                         onToggle={(nuevo) => onToggleItem(item.id, nuevo)}
                         onEditarTexto={(nuevo) =>
