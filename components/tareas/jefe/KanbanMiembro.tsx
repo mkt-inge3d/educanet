@@ -1,17 +1,12 @@
-import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { datosTarea } from "@/lib/tareas/tarea-datos";
-import { infoNegocio } from "@/lib/tareas/negocios";
-import { BadgeNegocio } from "@/components/tareas/SelectorNegocio";
-import { cn } from "@/lib/utils";
 import type { EstadoTareaInstancia, Prisma } from "@prisma/client";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { TareaCard } from "@/components/tareas/TareaCard";
 
 type Tarea = Prisma.TareaInstanciaGetPayload<{
   include: {
-    catalogoTarea: true;
+    catalogoTarea: { include: { checklistItems: true } };
     workflowInstancia: { select: { id: true; nombre: true; fechaHito: true; contextoMarca: true } };
     checklistMarcados: true;
   };
@@ -50,7 +45,13 @@ const COLUMNAS: Array<{
   },
 ];
 
-export function KanbanMiembro({ tareas }: { tareas: Tarea[] }) {
+export function KanbanMiembro({
+  tareas,
+  jefeId,
+}: {
+  tareas: Tarea[];
+  jefeId: string;
+}) {
   if (tareas.length === 0) {
     return (
       <Card>
@@ -85,64 +86,19 @@ export function KanbanMiembro({ tareas }: { tareas: Tarea[] }) {
                   —
                 </p>
               ) : (
-                items.map((t) => <TareaItem key={t.id} tarea={t} />)
+                items.map((t) => (
+                  <TareaCard
+                    key={t.id}
+                    tarea={t}
+                    userId={jefeId}
+                    hideCompleteButton
+                  />
+                ))
               )}
             </div>
           </div>
         );
       })}
     </div>
-  );
-}
-
-function TareaItem({ tarea }: { tarea: Tarea }) {
-  const datos = datosTarea(tarea);
-  const negocioInfo = infoNegocio(tarea.negocio);
-  const origen =
-    tarea.origen === "ASIGNADA_JEFE"
-      ? "Asignada por vos"
-      : tarea.origen === "AUTO_ASIGNADA"
-        ? "Auto-asignada"
-        : "Workflow";
-
-  return (
-    <Link href={`/tareas/${tarea.id}`}>
-      <Card
-        className={cn(
-          "transition-colors hover:border-primary/40",
-          negocioInfo && `border-l-4 ${negocioInfo.borderClass}`,
-        )}
-      >
-        <CardContent className="space-y-1.5 p-3">
-          <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-            <span className="uppercase tracking-wider">{origen}</span>
-            {tarea.estado === "COMPLETADA" && (
-              <CheckCircle2 className="h-3 w-3 text-success" />
-            )}
-            {tarea.estado === "BLOQUEADA" && (
-              <AlertTriangle className="h-3 w-3 text-warning" />
-            )}
-          </div>
-          <p className="line-clamp-2 text-sm font-medium leading-tight">
-            {datos.nombre}
-          </p>
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <Badge variant="outline" className="h-4 text-[10px]">
-              {datos.puntosBase} pts
-            </Badge>
-            <Badge variant="outline" className="h-4 text-[10px]">
-              <Clock className="mr-0.5 h-2.5 w-2.5" />
-              {datos.tiempoMinimoMin}-{datos.tiempoMaximoMin}m
-            </Badge>
-            <BadgeNegocio negocio={tarea.negocio} compact />
-            {tarea.estado === "COMPLETADA" && tarea.puntosOtorgados > 0 && (
-              <span className="text-[10px] text-success">
-                +{tarea.puntosOtorgados} otorgados
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }

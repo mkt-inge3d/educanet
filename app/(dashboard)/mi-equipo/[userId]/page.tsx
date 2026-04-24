@@ -110,7 +110,7 @@ export default async function MiembroDetallePage({
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Tareas asignadas</h2>
-        <KanbanMiembro tareas={tareas} />
+        <KanbanMiembro tareas={tareas} jefeId={jefe.id} />
       </section>
     </div>
   );

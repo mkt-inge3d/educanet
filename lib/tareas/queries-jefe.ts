@@ -129,10 +129,11 @@ export async function obtenerTareasDeMiembro(params: {
   const tareas = await prisma.tareaInstancia.findMany({
     where: {
       OR: [{ asignadoAId: params.userId }, { ejecutadaRealmenteId: params.userId }],
-      // Mostrar completadas del mes y activas sin importar fecha
     },
     include: {
-      catalogoTarea: true,
+      catalogoTarea: {
+        include: { checklistItems: { orderBy: { orden: "asc" } } },
+      },
       workflowInstancia: { select: { id: true, nombre: true, fechaHito: true, contextoMarca: true } },
       checklistMarcados: true,
     },

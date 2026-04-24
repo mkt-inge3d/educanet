@@ -25,7 +25,18 @@ type Result<T = undefined> =
 
 const PUNTOS_RECONOCIMIENTO_AYUDA_CRUZADA = 15;
 
-async function cargarTareaPropia(tareaId: string, userId: string) {
+/**
+ * Carga una tarea y verifica permisos. Permitidos: el asignado, el
+ * ejecutor por ayuda cruzada, admin/RRHH, y el jefe del área del asignado.
+ *
+ * @param opts.onlyOwner - si true, restringe a propietario/ejecutor (para
+ *                        acciones destructivas como `completar` o `iniciar`).
+ */
+async function cargarTareaConPermiso(
+  tareaId: string,
+  userId: string,
+  opts: { onlyOwner?: boolean } = {},
+) {
   const tarea = await prisma.tareaInstancia.findUnique({
     where: { id: tareaId },
     include: {
@@ -34,19 +45,47 @@ async function cargarTareaPropia(tareaId: string, userId: string) {
     },
   });
   if (!tarea) throw new Error("Tarea no encontrada");
+
+  // Propietario (asignado) o ejecutor por ayuda cruzada
   if (
-    tarea.asignadoAId !== userId &&
-    tarea.ejecutadaRealmenteId !== userId
+    tarea.asignadoAId === userId ||
+    tarea.ejecutadaRealmenteId === userId
   ) {
+    return tarea;
+  }
+
+  if (opts.onlyOwner) {
     throw new Error("No tienes permiso sobre esta tarea");
   }
-  return tarea;
+
+  // Admin / RRHH / jefe del área
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      rol: true,
+      areaId: true,
+      puesto: { select: { nombre: true } },
+    },
+  });
+
+  if (user?.rol === "ADMIN" || user?.rol === "RRHH") return tarea;
+
+  if (user?.puesto?.nombre?.startsWith("Jefe") && user.areaId) {
+    const asignado = await prisma.user.findUnique({
+      where: { id: tarea.asignadoAId },
+      select: { areaId: true },
+    });
+    if (asignado?.areaId === user.areaId) return tarea;
+  }
+
+  throw new Error("No tienes permiso sobre esta tarea");
 }
+
 
 export async function iniciarTarea(tareaId: string): Promise<Result> {
   try {
     const user = await requireAuth();
-    const tarea = await cargarTareaPropia(tareaId, user.id);
+    const tarea = await cargarTareaConPermiso(tareaId, user.id, { onlyOwner: true });
 
     if (tarea.estado !== "PENDIENTE") {
       return { success: false, error: "La tarea no está pendiente" };
@@ -72,7 +111,7 @@ export async function marcarChecklistItem(input: {
 }): Promise<Result> {
   try {
     const user = await requireAuth();
-    await cargarTareaPropia(input.tareaId, user.id);
+    await cargarTareaConPermiso(input.tareaId, user.id);
 
     await prisma.checklistItemMarcado.upsert({
       where: {
@@ -113,7 +152,7 @@ export async function editarChecklistItemTexto(input: {
 }): Promise<Result> {
   try {
     const user = await requireAuth();
-    const tarea = await cargarTareaPropia(input.tareaId, user.id);
+    const tarea = await cargarTareaConPermiso(input.tareaId, user.id);
     if (tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA") {
       return { success: false, error: "No se puede editar una tarea cerrada" };
     }
@@ -153,7 +192,7 @@ export async function reportarBloqueoExterno(input: {
 }): Promise<Result> {
   try {
     const user = await requireAuth();
-    const tarea = await cargarTareaPropia(input.tareaId, user.id);
+    const tarea = await cargarTareaConPermiso(input.tareaId, user.id, { onlyOwner: true });
     const datos = datosTarea(tarea);
 
     if (tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA") {
@@ -193,7 +232,7 @@ export async function reportarBloqueoExterno(input: {
 export async function desbloquearTarea(tareaId: string): Promise<Result> {
   try {
     const user = await requireAuth();
-    const tarea = await cargarTareaPropia(tareaId, user.id);
+    const tarea = await cargarTareaConPermiso(tareaId, user.id, { onlyOwner: true });
 
     if (tarea.estado !== "BLOQUEADA") {
       return { success: false, error: "La tarea no está bloqueada" };
@@ -235,7 +274,7 @@ export async function completarTarea(input: {
 > {
   try {
     const user = await requireAuth();
-    const tarea = await cargarTareaPropia(input.tareaId, user.id);
+    const tarea = await cargarTareaConPermiso(input.tareaId, user.id, { onlyOwner: true });
     const datos = datosTarea(tarea);
 
     if (tarea.estado === "COMPLETADA") {

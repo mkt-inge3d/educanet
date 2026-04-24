@@ -44,6 +44,9 @@ type Tarea = Prisma.TareaInstanciaGetPayload<{
 export type TareaCardProps = {
   tarea: Tarea;
   userId: string;
+  /** Oculta el botón "Completar tarea" (usado en vista jefe, donde solo
+   *  el empleado puede marcarla como completada). */
+  hideCompleteButton?: boolean;
 };
 
 const LABEL_CATEGORIA: Record<string, string> = {
@@ -66,7 +69,7 @@ function diasRestantes(fecha: Date): { texto: string; urgente: boolean } {
   return { texto: `${diff} días`, urgente: false };
 }
 
-export function TareaCard({ tarea }: TareaCardProps) {
+export function TareaCard({ tarea, hideCompleteButton = false }: TareaCardProps) {
   const router = useRouter();
   const [expand, setExpand] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -328,7 +331,7 @@ export function TareaCard({ tarea }: TareaCardProps) {
                   ))}
                 </ul>
 
-                {puedeCompletar && (
+                {puedeCompletar && !hideCompleteButton && (
                   <motion.div
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
