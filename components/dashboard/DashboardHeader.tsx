@@ -21,7 +21,7 @@ type HeaderUser = {
 
 export function DashboardHeader({ user }: { user: HeaderUser }) {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b bg-card/80 px-4 backdrop-blur-sm md:px-6">
+    <header className="glass-subtle sticky top-0 z-20 flex h-16 items-center gap-4 px-4 md:px-6">
       {/* Mobile menu */}
       <Sheet>
         <SheetTrigger

@@ -12,10 +12,10 @@ import { logoutAction } from "@/app/(dashboard)/actions";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Inicio", href: "/cursos", icon: Home },
-  { label: "Catalogo", href: "/cursos", icon: Library },
-  { label: "Mi carrera", href: "/mi-carrera", icon: TrendingUp },
-  { label: "Desempeno", href: "/desempeno", icon: LineChart },
+  { label: "Inicio", href: "/home", icon: Home },
+  { label: "Catálogo", href: "/cursos", icon: Library },
+  { label: "Mi progreso", href: "/mi-progreso", icon: TrendingUp },
+  { label: "Desempeño", href: "/desempeno", icon: LineChart },
   { label: "Mis logros", href: "/logros", icon: Trophy },
   { label: "Certificados", href: "/certificados", icon: Award },
   { label: "Mi perfil", href: "/perfil", icon: UserIcon },
@@ -33,7 +33,7 @@ export function DashboardSidebarMobile({ user }: { user: MobileUser }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center px-4">
-        <Link href="/cursos">
+        <Link href="/home">
           <EducanetLogo variant="full" />
         </Link>
       </div>

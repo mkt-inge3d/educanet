@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
 
   // Authenticated user trying to access login/register → redirect to dashboard
   if (pathname === "/login" || pathname === "/register") {
-    return NextResponse.redirect(new URL("/cursos", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   // Admin routes: check role from user_metadata

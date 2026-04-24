@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
-  TrendingUp,
-  LineChart,
+  BookOpen,
   Trophy,
   Award,
   User as UserIcon,
@@ -46,7 +45,8 @@ const sections: { title: string; items: NavItem[] }[] = [
   {
     title: "Aprender",
     items: [
-      { label: "Inicio", href: "/cursos", icon: Home },
+      { label: "Inicio", href: "/home", icon: Home },
+      { label: "Catálogo", href: "/cursos", icon: BookOpen },
     ],
   },
   {
@@ -111,11 +111,11 @@ export function DashboardSidebar({
       <motion.aside
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-card md:flex"
+        className="fixed inset-y-0 left-0 z-30 hidden flex-col glass-subtle border-r border-border/50 md:flex"
       >
         {/* Header */}
         <div className="flex h-16 items-center justify-between px-4">
-          <Link href="/cursos">
+          <Link href="/home">
             <EducanetLogo variant={collapsed ? "icon" : "full"} />
           </Link>
           {!collapsed && (
@@ -170,7 +170,7 @@ export function DashboardSidebar({
                       "flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-primary/10 text-primary border-l-2 border-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        : "text-muted-foreground hover:bg-primary/5 hover:text-foreground",
                       collapsed && "justify-center px-0"
                     )}
                   >

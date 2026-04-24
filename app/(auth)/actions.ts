@@ -59,7 +59,7 @@ export async function loginAction(
   }
 
   const redirectTo = formData.get("redirectTo") as string | null;
-  redirect(redirectTo || "/cursos");
+  redirect(redirectTo || "/home");
 }
 
 export async function registerAction(
@@ -148,7 +148,7 @@ export async function registerAction(
     }
   }
 
-  redirect("/cursos");
+  redirect("/home");
 }
 
 export async function resetPasswordAction(

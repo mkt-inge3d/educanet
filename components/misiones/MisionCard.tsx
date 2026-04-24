@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   Target,
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TipoMision, EstadoMision } from "@prisma/client";
 import { completarMision, descartarMision } from "@/lib/misiones/actions";
+import { LiquidRipple } from "@/components/ui/primitives/LiquidRipple";
 
 const TIPO_VISUAL: Record<
   TipoMision,
@@ -54,6 +55,7 @@ export function MisionCard({
   cursoSlug?: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [ripple, setRipple] = useState(false);
   const Icono = TIPO_VISUAL[tipo].icono;
   const completable =
     estado === "ACTIVA" && metaValor !== null && progresoActual >= metaValor;
@@ -63,6 +65,8 @@ export function MisionCard({
       const res = await completarMision(id);
       if (res.success) {
         toast.success(`Mision completada · +${res.data?.puntosOtorgados} pts`);
+        setRipple(true);
+        setTimeout(() => setRipple(false), 1200);
       } else {
         toast.error(res.error);
       }
@@ -88,6 +92,7 @@ export function MisionCard({
         estado === "CANCELADA" && "opacity-50"
       )}
     >
+      <LiquidRipple trigger={ripple} color="success" />
       <div className="mb-3 flex items-start gap-3">
         <div
           className={cn(

@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { MockPlayer } from "./reproductor/MockPlayer";
 import { BunnyPlayer } from "./reproductor/BunnyPlayer";
 import { useTrackProgreso } from "@/hooks/useTrackProgreso";
 import { CheckCircle } from "lucide-react";
+import { LiquidRipple } from "@/components/ui/primitives/LiquidRipple";
 
 export function LeccionVideo({
   leccionId,
@@ -23,6 +25,7 @@ export function LeccionVideo({
   puntosRecompensa: number;
 }) {
   const router = useRouter();
+  const [ripple, setRipple] = useState(false);
 
   const { actualizarProgreso } = useTrackProgreso({
     leccionId,
@@ -32,6 +35,8 @@ export function LeccionVideo({
       if (data.subioNivel) {
         toast.success(`Subiste al nivel ${data.nuevoNivel}!`);
       }
+      setRipple(true);
+      setTimeout(() => setRipple(false), 1200);
       router.refresh();
     },
   });
@@ -42,7 +47,8 @@ export function LeccionVideo({
     process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID;
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      <LiquidRipple trigger={ripple} color="success" />
       {completada && (
         <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
           <CheckCircle className="h-4 w-4" />

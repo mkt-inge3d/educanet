@@ -83,8 +83,8 @@ export function RangoActualDestacado({
             </p>
             <h2
               className={cn(
-                "text-3xl font-bold sm:text-4xl",
-                visual.texto
+                "text-3xl font-bold tracking-tight sm:text-4xl",
+                rango === "DIAMANTE" ? "text-shimmer-2026" : visual.texto
               )}
             >
               {visual.label}
