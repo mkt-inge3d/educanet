@@ -134,7 +134,7 @@ export async function reportarBloqueoExterno(input: {
           tipo: "SISTEMA",
           titulo: "Tarea bloqueada por tercero",
           mensaje: `${user.nombre} reportó bloqueo en "${datos.nombre}": ${input.motivo} (esperando a ${input.responsable})`,
-          url: `/mi-equipo/tareas?bloqueo=${input.tareaId}`,
+          url: `/mi-equipo?bloqueo=${input.tareaId}`,
         },
       });
     }
@@ -293,14 +293,14 @@ export async function completarTarea(input: {
             tipo: "SISTEMA",
             titulo: "Tarea ad-hoc por validar",
             mensaje: `${user.nombre} completó "${datos.nombre}" (${puntosBrutos} pts brutos). Revisá y validá.`,
-            url: `/mi-equipo/tareas/${user.id}`,
+            url: `/mi-equipo/${user.id}`,
           },
         });
       }
 
       revalidatePath("/tareas");
       revalidatePath(`/tareas/${input.tareaId}`);
-      revalidatePath("/mi-equipo/tareas");
+      revalidatePath("/mi-equipo");
 
       return {
         success: true,
@@ -412,7 +412,7 @@ export async function completarTarea(input: {
     revalidatePath("/tareas");
     revalidatePath("/mi-progreso");
     revalidatePath(`/tareas/${input.tareaId}`);
-    revalidatePath("/mi-equipo/tareas");
+    revalidatePath("/mi-equipo");
 
     return {
       success: true,
@@ -507,8 +507,8 @@ export async function asignarTareaDirecta(input: {
       },
     });
 
-    revalidatePath("/mi-equipo/tareas");
-    revalidatePath(`/mi-equipo/tareas/${input.asignadoAId}`);
+    revalidatePath("/mi-equipo");
+    revalidatePath(`/mi-equipo/${input.asignadoAId}`);
     return { success: true, data: { tareaId: nueva.id } };
   } catch (e) {
     return { success: false, error: (e as Error).message };
@@ -582,14 +582,14 @@ export async function crearTareaAdHoc(input: {
             tipo: "SISTEMA",
             titulo: "Nueva tarea auto-asignada",
             mensaje: `${user.nombre} creó la tarea "${input.nombre.trim()}" (${input.puntosBaseAdHoc} pts). Revisá cuando se complete.`,
-            url: `/mi-equipo/tareas/${user.id}`,
+            url: `/mi-equipo/${user.id}`,
           },
         });
       }
     }
 
     revalidatePath("/tareas");
-    revalidatePath("/mi-equipo/tareas");
+    revalidatePath("/mi-equipo");
     return { success: true, data: { tareaId: nueva.id } };
   } catch (e) {
     return { success: false, error: (e as Error).message };
@@ -705,8 +705,8 @@ export async function validarTareaAdHoc(input: {
     }
 
     revalidatePath("/tareas");
-    revalidatePath("/mi-equipo/tareas");
-    revalidatePath(`/mi-equipo/tareas/${tarea.asignadoAId}`);
+    revalidatePath("/mi-equipo");
+    revalidatePath(`/mi-equipo/${tarea.asignadoAId}`);
     revalidatePath(`/tareas/${input.tareaId}`);
 
     return { success: true, data: { puntosOtorgados } };
@@ -736,7 +736,7 @@ export async function crearWorkflow(
     }
 
     const result = await crearWorkflowDesdeTemplate(input);
-    revalidatePath("/mi-equipo/tareas");
+    revalidatePath("/mi-equipo");
     revalidatePath("/admin/workflows");
     return { success: true, data: result };
   } catch (e) {
@@ -751,7 +751,7 @@ export async function cancelarWorkflow(workflowId: string): Promise<Result> {
       where: { id: workflowId },
       data: { estadoGeneral: "CANCELADO" },
     });
-    revalidatePath("/mi-equipo/tareas");
+    revalidatePath("/mi-equipo");
     revalidatePath("/admin/workflows");
     return { success: true };
   } catch (e) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { requireAuth } from "@/lib/auth";
 import { esJefeDelArea, obtenerProyeccionMesUsuario } from "@/lib/tareas/helpers";
@@ -46,7 +46,7 @@ export default async function MiembroDetallePage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <Button variant="ghost" size="sm" render={<Link href="/mi-equipo/tareas" />}>
+      <Button variant="ghost" size="sm" render={<Link href="/mi-equipo" />}>
         <ArrowLeft />
         Volver a equipo
       </Button>
@@ -68,7 +68,6 @@ export default async function MiembroDetallePage({
         />
       </header>
 
-      {/* Velocímetro + proyección */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-6 p-5">
           <VelocimetroMini
@@ -105,12 +104,10 @@ export default async function MiembroDetallePage({
         </CardContent>
       </Card>
 
-      {/* Ad-hocs pendientes validación */}
       {adHocs.length > 0 && (
         <PanelAdHocsValidacion tareas={adHocs} miembroNombre={miembro.nombre} />
       )}
 
-      {/* Kanban del miembro */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Tareas asignadas</h2>
         <KanbanMiembro tareas={tareas} />

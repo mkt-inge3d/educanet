@@ -36,7 +36,7 @@ export default async function AdminWorkflowsPage() {
         <h1 className="text-2xl font-bold">Workflows</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Plantillas disponibles e instancias recientes. Para programar uno
-          nuevo usá <Link href="/mi-equipo/tareas" className="underline">Tareas del equipo</Link>.
+          nuevo usá <Link href="/mi-equipo" className="underline">Mi equipo</Link>.
         </p>
       </div>
 
