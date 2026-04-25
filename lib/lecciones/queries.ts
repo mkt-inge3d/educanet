@@ -67,6 +67,7 @@ export async function obtenerLeccionCompleta(
     descripcion: leccion.descripcion,
     tipo: leccion.tipo,
     bunnyVideoId: leccion.bunnyVideoId,
+    videoUrl: leccion.videoUrl,
     contenidoMarkdown: leccion.contenidoMarkdown,
     duracionSegundos: leccion.duracionSegundos,
     puntosRecompensa: leccion.puntosRecompensa,

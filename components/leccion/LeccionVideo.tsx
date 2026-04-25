@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MockPlayer } from "./reproductor/MockPlayer";
 import { BunnyPlayer } from "./reproductor/BunnyPlayer";
+import { R2VideoPlayer } from "./reproductor/R2VideoPlayer";
 import { useTrackProgreso } from "@/hooks/useTrackProgreso";
 import { CheckCircle } from "lucide-react";
 import { LiquidRipple } from "@/components/ui/primitives/LiquidRipple";
@@ -12,6 +13,7 @@ import { LiquidRipple } from "@/components/ui/primitives/LiquidRipple";
 export function LeccionVideo({
   leccionId,
   bunnyVideoId,
+  videoUrl,
   duracionSegundos,
   porcentajeVisto,
   completada,
@@ -19,6 +21,7 @@ export function LeccionVideo({
 }: {
   leccionId: string;
   bunnyVideoId: string | null;
+  videoUrl: string | null;
   duracionSegundos: number;
   porcentajeVisto: number;
   completada: boolean;
@@ -46,6 +49,8 @@ export function LeccionVideo({
     bunnyVideoId.length > 0 &&
     process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID;
 
+  const useR2 = videoUrl && videoUrl.length > 0;
+
   return (
     <div className="relative space-y-4">
       <LiquidRipple trigger={ripple} color="success" />
@@ -59,6 +64,13 @@ export function LeccionVideo({
       {useBunny ? (
         <BunnyPlayer
           bunnyVideoId={bunnyVideoId!}
+          onProgreso={actualizarProgreso}
+          onCompletar={() => actualizarProgreso(100)}
+        />
+      ) : useR2 ? (
+        <R2VideoPlayer
+          src={videoUrl!}
+          porcentajeInicial={completada ? 100 : porcentajeVisto}
           onProgreso={actualizarProgreso}
           onCompletar={() => actualizarProgreso(100)}
         />

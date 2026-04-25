@@ -130,6 +130,7 @@ export function LeccionLayout({
               <LeccionVideo
                 leccionId={leccion.id}
                 bunnyVideoId={leccion.bunnyVideoId}
+                videoUrl={leccion.videoUrl}
                 duracionSegundos={leccion.duracionSegundos}
                 porcentajeVisto={leccion.porcentajeVisto}
                 completada={leccion.completada}

@@ -72,13 +72,22 @@ export default async function AdminCursosPage() {
                       <CursoPublicarSwitch cursoId={c.id} publicado={c.publicado} />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        render={<Link href={`/admin/cursos/${c.id}/relacionados`} />}
-                      >
-                        Relacionados
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          render={<Link href={`/admin/cursos/${c.id}`} />}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          render={<Link href={`/admin/cursos/${c.id}/relacionados`} />}
+                        >
+                          Relacionados
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );

@@ -85,6 +85,16 @@ export async function crearModulo(cursoId: string, data: { titulo: string; descr
   revalidatePath("/admin/cursos");
 }
 
+export async function actualizarVideoUrlLeccion(leccionId: string, videoUrl: string | null) {
+  await requireRole(["ADMIN"]);
+  await prisma.leccion.update({
+    where: { id: leccionId },
+    data: { videoUrl: videoUrl || null },
+  });
+  revalidatePath("/admin/cursos");
+  revalidatePath("/cursos");
+}
+
 export async function crearLeccion(moduloId: string, data: {
   titulo: string;
   tipo: "VIDEO" | "LECTURA" | "QUIZ";

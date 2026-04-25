@@ -51,6 +51,7 @@ export type LeccionDetalleCompleta = {
   descripcion: string | null;
   tipo: TipoLeccion;
   bunnyVideoId: string | null;
+  videoUrl: string | null;
   contenidoMarkdown: string | null;
   duracionSegundos: number;
   puntosRecompensa: number;

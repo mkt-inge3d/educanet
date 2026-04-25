@@ -383,6 +383,7 @@ model Leccion {
   descripcion       String?
   tipo              TipoLeccion
   bunnyVideoId      String?
+  videoUrl          String?
   contenidoMarkdown String?     @db.Text
   duracionSegundos  Int         @default(0)
   orden             Int
