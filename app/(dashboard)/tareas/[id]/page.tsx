@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { requireAuth } from "@/lib/auth";
+import { esJefeDelArea } from "@/lib/tareas/helpers";
 import { obtenerTareaDetalle, obtenerCompanerosArea } from "@/lib/tareas/queries";
 import { Button } from "@/components/ui/button";
 import { DetalleTareaClient } from "@/components/tareas/DetalleTareaClient";
@@ -19,7 +20,20 @@ export default async function TareaDetallePage({
 
   const data = await obtenerTareaDetalle(id, user.id);
   if (!data) notFound();
-  if (!data.esPropia) redirect("/unauthorized");
+
+  let modoLectura = false;
+  if (!data.esPropia) {
+    const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+    if (esAdmin) {
+      // admins pueden ver y editar cualquier tarea
+    } else {
+      const puedeComoJefe = data.tarea.asignadoAId
+        ? await esJefeDelArea(user.id, data.tarea.asignadoAId)
+        : false;
+      if (!puedeComoJefe) redirect("/unauthorized");
+      modoLectura = true;
+    }
+  }
 
   const { tarea } = data;
 
@@ -27,14 +41,18 @@ export default async function TareaDetallePage({
     ? await obtenerCompanerosArea({ areaId: user.areaId, excluirUserId: user.id })
     : [];
 
+  const volverHref = modoLectura
+    ? `/mi-equipo/${tarea.asignadoAId}`
+    : "/tareas";
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Button variant="ghost" size="sm" render={<Link href="/tareas" />}>
+      <Button variant="ghost" size="sm" render={<Link href={volverHref} />}>
         <ArrowLeft />
-        Volver al kanban
+        {modoLectura ? "Volver al equipo" : "Volver al kanban"}
       </Button>
 
-      <DetalleTareaClient tarea={tarea} companeros={companeros} />
+      <DetalleTareaClient tarea={tarea} companeros={companeros} modoLectura={modoLectura} />
     </div>
   );
 }

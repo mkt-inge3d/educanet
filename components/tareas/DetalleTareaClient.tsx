@@ -99,9 +99,11 @@ type Companero = {
 export function DetalleTareaClient({
   tarea,
   companeros,
+  modoLectura = false,
 }: {
   tarea: TareaDetalle;
   companeros: Companero[];
+  modoLectura?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -175,6 +177,19 @@ export function DetalleTareaClient({
 
   return (
     <>
+      {modoLectura && tarea.asignadoA && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          <Users className="h-4 w-4 flex-shrink-0 text-primary" />
+          <span className="text-muted-foreground">
+            Viendo como jefe ·{" "}
+            <strong className="text-foreground">
+              {tarea.asignadoA.nombre} {tarea.asignadoA.apellido}
+            </strong>
+            {tarea.asignadoA.puesto?.nombre && ` · ${tarea.asignadoA.puesto.nombre}`}
+          </span>
+        </div>
+      )}
+
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {cat ? (
@@ -188,27 +203,36 @@ export function DetalleTareaClient({
               {tarea.origen === "ASIGNADA_JEFE" ? "Asignada por jefe" : "Ad-hoc"}
             </Badge>
           )}
-          <InlineNegocio
-            value={tarea.negocio}
-            onSave={(nuevo) =>
-              editarTareaInstancia({ tareaId: tarea.id, negocio: nuevo })
-            }
-          />
+          {!modoLectura && (
+            <InlineNegocio
+              value={tarea.negocio}
+              onSave={(nuevo) =>
+                editarTareaInstancia({ tareaId: tarea.id, negocio: nuevo })
+              }
+            />
+          )}
+          {modoLectura && tarea.negocio && (
+            <Badge variant="outline">{tarea.negocio}</Badge>
+          )}
         </div>
 
-        <InlineText
-          value={datos.nombre}
-          onSave={(nuevo) =>
-            editarTareaInstancia({ tareaId: tarea.id, nombreAdHoc: nuevo })
-          }
-          allowEmpty={!!cat}
-          emptyHint={
-            cat ? `Al guardar vacío, vuelve al nombre original "${cat.nombre}"` : undefined
-          }
-          placeholder="Nombre de la tarea"
-          className="text-2xl font-semibold tracking-tight sm:text-3xl block w-full"
-          inputClassName="text-2xl sm:text-3xl font-semibold h-auto py-1"
-        />
+        {modoLectura ? (
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{datos.nombre}</h1>
+        ) : (
+          <InlineText
+            value={datos.nombre}
+            onSave={(nuevo) =>
+              editarTareaInstancia({ tareaId: tarea.id, nombreAdHoc: nuevo })
+            }
+            allowEmpty={!!cat}
+            emptyHint={
+              cat ? `Al guardar vacío, vuelve al nombre original "${cat.nombre}"` : undefined
+            }
+            placeholder="Nombre de la tarea"
+            className="text-2xl font-semibold tracking-tight sm:text-3xl block w-full"
+            inputClassName="text-2xl sm:text-3xl font-semibold h-auto py-1"
+          />
+        )}
         {datos.tieneOverrideNombre && cat && (
           <p className="text-xs text-muted-foreground italic">
             Nombre personalizado (original: {cat.nombre})
@@ -236,22 +260,30 @@ export function DetalleTareaClient({
               <CardTitle className="text-base">Descripción</CardTitle>
             </CardHeader>
             <CardContent>
-              <InlineTextarea
-                value={datos.descripcion}
-                placeholder="Agregar descripción"
-                className="text-sm leading-relaxed text-muted-foreground"
-                onSave={(nuevo) =>
-                  editarTareaInstancia({
-                    tareaId: tarea.id,
-                    descripcionAdHoc: nuevo,
-                  })
-                }
-              />
-              {datos.tieneOverrideDescripcion && cat && (
-                <p className="mt-2 text-[11px] text-muted-foreground italic">
-                  Descripción personalizada · dejá el campo vacío para volver a
-                  la original del catálogo
+              {modoLectura ? (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {datos.descripcion || <span className="italic">Sin descripción</span>}
                 </p>
+              ) : (
+                <>
+                  <InlineTextarea
+                    value={datos.descripcion}
+                    placeholder="Agregar descripción"
+                    className="text-sm leading-relaxed text-muted-foreground"
+                    onSave={(nuevo) =>
+                      editarTareaInstancia({
+                        tareaId: tarea.id,
+                        descripcionAdHoc: nuevo,
+                      })
+                    }
+                  />
+                  {datos.tieneOverrideDescripcion && cat && (
+                    <p className="mt-2 text-[11px] text-muted-foreground italic">
+                      Descripción personalizada · dejá el campo vacío para volver a
+                      la original del catálogo
+                    </p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -303,7 +335,7 @@ export function DetalleTareaClient({
               <ul className="space-y-2">
                 {itemsOrdenados.map((item, idx) => {
                   const disabled =
-                    tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA";
+                    modoLectura || tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA";
                   return (
                     <li key={item.id} className="rounded-lg border p-3">
                       <ChecklistItemRow
@@ -333,7 +365,7 @@ export function DetalleTareaClient({
           </Card>
           )}
 
-          <ChecklistAdHoc tarea={tarea} />
+          {!modoLectura && <ChecklistAdHoc tarea={tarea} />}
         </div>
 
         <aside className="space-y-4">
@@ -344,7 +376,7 @@ export function DetalleTareaClient({
                   Tiempo estimado
                 </p>
                 <p className="mt-1 text-lg font-semibold tabular-nums">
-                  {datos.esAdHoc ? (
+                  {datos.esAdHoc && !modoLectura ? (
                     <>
                       <InlineNumber
                         value={datos.tiempoMinimoMin}
@@ -398,61 +430,82 @@ export function DetalleTareaClient({
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">
                   Fechas
                 </p>
-                <div className="mt-1 space-y-1">
-                  <InlineDate
-                    label="Inicio"
-                    value={tarea.fechaEstimadaInicio}
-                    onSave={(nuevo) =>
-                      editarTareaInstancia({
-                        tareaId: tarea.id,
-                        fechaEstimadaInicio: nuevo,
-                      })
-                    }
-                  />
-                  <br />
-                  <InlineDate
-                    label="Fin"
-                    value={tarea.fechaEstimadaFin}
-                    onSave={(nuevo) =>
-                      editarTareaInstancia({
-                        tareaId: tarea.id,
-                        fechaEstimadaFin: nuevo,
-                      })
-                    }
-                  />
+                <div className="mt-1 space-y-1 text-sm">
+                  {modoLectura ? (
+                    <>
+                      <p>
+                        <span className="text-muted-foreground">Inicio: </span>
+                        {tarea.fechaEstimadaInicio
+                          ? tarea.fechaEstimadaInicio.toLocaleDateString("es")
+                          : "—"}
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Fin: </span>
+                        {tarea.fechaEstimadaFin
+                          ? tarea.fechaEstimadaFin.toLocaleDateString("es")
+                          : "—"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <InlineDate
+                        label="Inicio"
+                        value={tarea.fechaEstimadaInicio}
+                        onSave={(nuevo) =>
+                          editarTareaInstancia({
+                            tareaId: tarea.id,
+                            fechaEstimadaInicio: nuevo,
+                          })
+                        }
+                      />
+                      <br />
+                      <InlineDate
+                        label="Fin"
+                        value={tarea.fechaEstimadaFin}
+                        onSave={(nuevo) =>
+                          editarTareaInstancia({
+                            tareaId: tarea.id,
+                            fechaEstimadaFin: nuevo,
+                          })
+                        }
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-2">
-            {tarea.estado === "PENDIENTE" && (
-              <Button className="w-full" onClick={onIniciar} disabled={isPending}>
-                <Play />
-                Iniciar tarea
-              </Button>
-            )}
-            {tarea.estado === "BLOQUEADA" && (
-              <Button className="w-full" onClick={onDesbloquear} disabled={isPending}>
-                <Play />
-                Se desbloqueó
-              </Button>
-            )}
-            {tarea.estado === "EN_PROGRESO" && (
-              <ModalCompletar
-                tarea={tarea}
-                companeros={companeros}
-                obligatoriosMarcados={obligatoriosMarcados}
-                totalObligatorios={totalObligatorios}
-                itemsCompletados={itemsCompletados}
-                itemsTotales={itemsOrdenados.length}
-              />
-            )}
-            {tarea.estado !== "COMPLETADA" && tarea.estado !== "BLOQUEADA" && tarea.estado !== "OMITIDA" && (
-              <ModalBloqueo tareaId={tarea.id} />
-            )}
-            <ModalEliminarTarea tareaId={tarea.id} />
-          </div>
+          {!modoLectura && (
+            <div className="space-y-2">
+              {tarea.estado === "PENDIENTE" && (
+                <Button className="w-full" onClick={onIniciar} disabled={isPending}>
+                  <Play />
+                  Iniciar tarea
+                </Button>
+              )}
+              {tarea.estado === "BLOQUEADA" && (
+                <Button className="w-full" onClick={onDesbloquear} disabled={isPending}>
+                  <Play />
+                  Se desbloqueó
+                </Button>
+              )}
+              {tarea.estado === "EN_PROGRESO" && (
+                <ModalCompletar
+                  tarea={tarea}
+                  companeros={companeros}
+                  obligatoriosMarcados={obligatoriosMarcados}
+                  totalObligatorios={totalObligatorios}
+                  itemsCompletados={itemsCompletados}
+                  itemsTotales={itemsOrdenados.length}
+                />
+              )}
+              {tarea.estado !== "COMPLETADA" && tarea.estado !== "BLOQUEADA" && tarea.estado !== "OMITIDA" && (
+                <ModalBloqueo tareaId={tarea.id} />
+              )}
+              <ModalEliminarTarea tareaId={tarea.id} />
+            </div>
+          )}
 
           {tarea.estado === "COMPLETADA" && (
             <Card className="border-success/40 bg-success/5">

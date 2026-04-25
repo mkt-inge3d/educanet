@@ -48,6 +48,9 @@ export type TareaCardProps = {
   /** Oculta el botón "Completar tarea" (usado en vista jefe, donde solo
    *  el empleado puede marcarla como completada). */
   hideCompleteButton?: boolean;
+  /** Oculta controles de acción (eliminar, checklist editable). Para vista
+   *  de jefe sobre tareas de su equipo. */
+  hideActions?: boolean;
   onExpandChange?: (expanded: boolean) => void;
 };
 
@@ -71,7 +74,7 @@ function diasRestantes(fecha: Date): { texto: string; urgente: boolean } {
   return { texto: `${diff} días`, urgente: false };
 }
 
-export function TareaCard({ tarea, hideCompleteButton = false, onExpandChange }: TareaCardProps) {
+export function TareaCard({ tarea, hideCompleteButton = false, hideActions = false, onExpandChange }: TareaCardProps) {
   const router = useRouter();
   const [expand, setExpand] = useState(false);
   const [editingItem, setEditingItem] = useState(false);
@@ -293,21 +296,23 @@ export function TareaCard({ tarea, hideCompleteButton = false, onExpandChange }:
                 {marcados}/{totalItems} ✓
               </span>
             )}
-            <button
-              type="button"
-              onClick={onEliminar}
-              disabled={isPending}
-              className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors",
-                armado
-                  ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                  : "text-muted-foreground hover:text-destructive",
-              )}
-              title={armado ? "Clic para confirmar eliminación" : "Eliminar tarea"}
-            >
-              <Trash2 className="h-3 w-3" />
-              {armado && <span>¿Eliminar?</span>}
-            </button>
+            {!hideActions && (
+              <button
+                type="button"
+                onClick={onEliminar}
+                disabled={isPending}
+                className={cn(
+                  "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                  armado
+                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    : "text-muted-foreground hover:text-destructive",
+                )}
+                title={armado ? "Clic para confirmar eliminación" : "Eliminar tarea"}
+              >
+                <Trash2 className="h-3 w-3" />
+                {armado && <span>¿Eliminar?</span>}
+              </button>
+            )}
           </div>
         </div>
 
@@ -400,7 +405,7 @@ export function TareaCard({ tarea, hideCompleteButton = false, onExpandChange }:
                             descripcionOverride={null}
                             obligatorio={true}
                             marcado={item.marcado}
-                            disabled={false}
+                            disabled={hideActions}
                             onToggle={(nuevo) => onToggleAdHocItem(idx, nuevo)}
                             onEditarTexto={async () => ({ success: true })}
                             onEditingChange={handleItemEditingChange}
@@ -422,7 +427,7 @@ export function TareaCard({ tarea, hideCompleteButton = false, onExpandChange }:
                             descripcionOverride={overridesMap.get(item.id) ?? null}
                             obligatorio={item.obligatorio}
                             marcado={localMarcados.get(item.id) ?? false}
-                            disabled={false}
+                            disabled={hideActions}
                             onToggle={(nuevo) => onToggleItem(item.id, nuevo)}
                             onEditarTexto={(nuevo) =>
                               editarChecklistItemTexto({

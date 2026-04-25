@@ -108,6 +108,7 @@ export function KanbanMiembro({
                     tarea={t}
                     userId={jefeId}
                     hideCompleteButton
+                    hideActions
                     onExpandChange={(expanded) =>
                       setExpandedCol(expanded ? col.estado : null)
                     }
