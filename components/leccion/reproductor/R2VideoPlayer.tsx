@@ -119,7 +119,6 @@ export function R2VideoPlayer({
       ref={containerRef}
       className="group relative aspect-video overflow-hidden rounded-xl bg-black"
       onMouseMove={resetHideTimer}
-      onClick={toggle}
     >
       <video
         ref={videoRef}
@@ -133,71 +132,72 @@ export function R2VideoPlayer({
         playsInline
       />
 
-      {/* Overlay de controles */}
+      {/* Overlay — click en el área del video pausa/reanuda */}
       <div
         className={cn(
           "absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-transparent to-transparent transition-opacity duration-300",
           showControls || !playing ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
-        onClick={(e) => e.stopPropagation()}
+        onClick={toggle}
       >
-        {/* Barra de progreso */}
-        <div className="px-4 pb-1">
-          <input
-            type="range"
-            min={0}
-            max={duration || 1}
-            step={0.5}
-            value={currentTime}
-            onChange={seek}
-            className="w-full cursor-pointer accent-primary h-1 rounded-full"
-            style={{
-              background: `linear-gradient(to right, hsl(var(--primary)) ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
-            }}
-          />
-        </div>
+        {/* Barra de progreso y controles — frenan propagación para no disparar toggle */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <div className="px-4 pb-1">
+            <input
+              type="range"
+              min={0}
+              max={duration || 1}
+              step={0.5}
+              value={currentTime}
+              onChange={seek}
+              className="w-full cursor-pointer accent-primary h-1 rounded-full"
+              style={{
+                background: `linear-gradient(to right, hsl(var(--primary)) ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
+              }}
+            />
+          </div>
 
-        {/* Controles inferiores */}
-        <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-1">
-          <div className="flex items-center gap-2">
-            {completadoLocal ? (
+          <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-1">
+            <div className="flex items-center gap-2">
+              {completadoLocal ? (
+                <button
+                  type="button"
+                  onClick={reiniciar}
+                  className="rounded-full p-1.5 text-white/80 hover:text-white transition-colors"
+                  title="Reiniciar"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  className="rounded-full p-1.5 text-white hover:text-primary transition-colors"
+                  title={playing ? "Pausar" : "Reproducir"}
+                >
+                  {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={reiniciar}
+                onClick={toggleMute}
                 className="rounded-full p-1.5 text-white/80 hover:text-white transition-colors"
-                title="Reiniciar"
               >
-                <RotateCcw className="h-4 w-4" />
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={toggle}
-                className="rounded-full p-1.5 text-white hover:text-primary transition-colors"
-                title={playing ? "Pausar" : "Reproducir"}
-              >
-                {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </button>
-            )}
+              <span className="text-xs tabular-nums text-white/70">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
             <button
               type="button"
-              onClick={toggleMute}
+              onClick={fullscreen}
               className="rounded-full p-1.5 text-white/80 hover:text-white transition-colors"
+              title="Pantalla completa"
             >
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              <Maximize className="h-4 w-4" />
             </button>
-            <span className="text-xs tabular-nums text-white/70">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
           </div>
-          <button
-            type="button"
-            onClick={fullscreen}
-            className="rounded-full p-1.5 text-white/80 hover:text-white transition-colors"
-            title="Pantalla completa"
-          >
-            <Maximize className="h-4 w-4" />
-          </button>
         </div>
       </div>
 
