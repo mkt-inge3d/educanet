@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Captions, MessageCircle, StickyNote } from "lucide-react";
 import {
   Tabs,
@@ -9,7 +10,23 @@ import { EditorNotas } from "./notas/EditorNotas";
 import { SeccionComentariosPanel } from "./comentarios/SeccionComentariosPanel";
 import type { NotaLeccion } from "@/types/lecciones";
 
-export async function LeccionPanelDer({
+function ComentariosSkeleton() {
+  return (
+    <div className="space-y-3 p-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex gap-3">
+          <div className="h-8 w-8 shrink-0 rounded-full bg-muted animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-full rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function LeccionPanelDer({
   leccionId,
   notas,
   currentUserId,
@@ -41,11 +58,13 @@ export async function LeccionPanelDer({
         value="comentarios"
         className="mt-3 flex-1 overflow-hidden"
       >
-        <SeccionComentariosPanel
-          leccionId={leccionId}
-          currentUserId={currentUserId}
-          esAdmin={esAdmin}
-        />
+        <Suspense fallback={<ComentariosSkeleton />}>
+          <SeccionComentariosPanel
+            leccionId={leccionId}
+            currentUserId={currentUserId}
+            esAdmin={esAdmin}
+          />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="notas" className="mt-3 flex-1 overflow-y-auto p-4">

@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { NumeroAnimado } from "@/components/ui/primitives/NumeroAnimado";
 
 export async function StatsLanding() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("stats-landing");
   const [cursos, certificados, badges] = await Promise.all([
     prisma.curso.count({ where: { publicado: true } }),
     prisma.certificado.count(),

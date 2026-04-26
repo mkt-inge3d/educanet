@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type { ConfiguracionPiloto } from "@prisma/client";
 
 export type PilotoContexto = {
@@ -20,6 +21,10 @@ const VACIO: PilotoContexto = {
 export async function obtenerPilotoContextoPorArea(
   areaId: string | null | undefined
 ): Promise<PilotoContexto> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("piloto-config", `piloto-area-${areaId ?? "null"}`);
+
   if (!areaId) return VACIO;
 
   const config = await prisma.configuracionPiloto.findUnique({

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type { CursoListado, EstadoCurso } from "@/types/cursos";
 
 type InputRelacionados = {
@@ -99,6 +100,10 @@ const incluirParaListado = {
 export async function obtenerCursosRelacionados(
   params: InputRelacionados
 ): Promise<CursoListado[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("cursos", `cursos-usuario-${params.userId}`);
+
   const limite = params.limite ?? LIMITE_DEFAULT;
 
   const manualEntries = await prisma.cursoRelacionado.findMany({
