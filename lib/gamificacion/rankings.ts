@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 
 export type RankingEntry = {
   position: number;
@@ -21,6 +22,9 @@ export async function obtenerRankingArea(params: {
   cercanosAlUsuario: RankingEntry[];
   totalParticipantes: number;
 }> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("ranking", `ranking-area-${params.areaId}`);
   const orderField =
     params.metrica === "puntos_total" ? "puntosTotales" : "rachaActual";
 

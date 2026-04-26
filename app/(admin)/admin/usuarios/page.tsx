@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,16 +16,23 @@ const rolColors: Record<string, string> = {
   TRABAJADOR: "bg-muted text-muted-foreground",
 };
 
-export default async function AdminUsuariosPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const usuarios = await prisma.user.findMany({
+async function listarTodosUsuarios() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-usuarios");
+  return prisma.user.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       puesto: { select: { nombre: true } },
       area: { select: { nombre: true } },
     },
   });
+}
+
+export default async function AdminUsuariosPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const usuarios = await listarTodosUsuarios();
 
   return (
     <div className="space-y-6">

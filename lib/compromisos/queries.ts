@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { getSemanaISO } from "@/lib/gamificacion/periodo";
 
 export async function listarCompromisosUsuario(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-${userId}`);
   return prisma.compromiso.findMany({
     where: { userId },
     orderBy: [{ estado: "asc" }, { fechaLimite: "asc" }],
@@ -33,6 +37,9 @@ export async function listarCompromisosPorEstado(userId: string) {
 }
 
 export async function obtenerCompromisosPendientesValidacion(areaId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-area-${areaId}`);
   return prisma.compromiso.findMany({
     where: {
       estado: "CUMPLIDO_AUTO",
@@ -54,6 +61,9 @@ export async function obtenerCompromisosPendientesValidacion(areaId: string) {
 }
 
 export async function obtenerPropuestasPorAprobar(areaId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-area-${areaId}`);
   return prisma.compromiso.findMany({
     where: {
       estado: "PROPUESTO",
@@ -78,6 +88,9 @@ export async function obtenerCompromisosDelEquipoPorMiembro(
   areaId: string,
   excluirUserId?: string
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-area-${areaId}`);
   const miembros = await prisma.user.findMany({
     where: {
       areaId,
@@ -135,6 +148,9 @@ export async function estadisticasMes(
   mes: number,
   anio: number
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-${userId}`);
   const inicio = new Date(anio, mes - 1, 1);
   const fin = new Date(anio, mes, 0, 23, 59, 59);
   const compromisos = await prisma.compromiso.findMany({
@@ -153,6 +169,9 @@ export async function estadisticasMes(
 }
 
 export async function estadisticasSemana(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("compromisos", `compromisos-${userId}`);
   const { semana, anio } = getSemanaISO(new Date());
   const compromisos = await prisma.compromiso.findMany({
     where: { userId, semanaDelAnio: semana, anio },

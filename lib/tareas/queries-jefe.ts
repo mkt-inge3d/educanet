@@ -2,6 +2,7 @@
  * Prompt 18 · UX jefe — queries para la vista por miembro + drill-down.
  */
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { rangoMes } from "@/lib/gamificacion/periodo";
 import { TOPE_MENSUAL_TAREAS_OPERATIVAS, obtenerProyeccionMesUsuario } from "./helpers";
 
@@ -15,6 +16,9 @@ export async function obtenerPanelEquipoJefe(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("panel-equipo", `panel-equipo-${params.areaId}`);
   const { inicio, fin } = rangoMes(params.mes, params.anio);
 
   const miembros = await prisma.user.findMany({
@@ -145,6 +149,9 @@ export async function obtenerTareasDeMiembro(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-${params.userId}`);
   const { inicio, fin } = rangoMes(params.mes, params.anio);
 
   const tareas = await prisma.tareaInstancia.findMany({
@@ -174,6 +181,9 @@ export async function obtenerTareasDeMiembro(params: {
  * Tareas ad-hoc del miembro que requieren validación del jefe (pendientes).
  */
 export async function obtenerAdHocsPendientesValidacion(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-${userId}`);
   return prisma.tareaInstancia.findMany({
     where: {
       asignadoAId: userId,
@@ -192,6 +202,9 @@ export async function obtenerAdHocsPendientesValidacion(userId: string) {
  * Datos del miembro para la página drill-down.
  */
 export async function obtenerDatosMiembro(userId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("usuario-detalle", `usuario-${userId}`);
   return prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -205,6 +218,9 @@ export async function obtenerDatosMiembro(userId: string) {
  * Catálogo de tareas disponible para asignar al miembro (filtrado por su puesto).
  */
 export async function obtenerCatalogoAsignableA(puestoId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalogo-tareas", `catalogo-puesto-${puestoId}`);
   return prisma.catalogoTarea.findMany({
     where: {
       rolResponsableId: puestoId,

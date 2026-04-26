@@ -1,20 +1,28 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export const metadata = { title: "Admin - Puestos y areas" };
-
-export default async function AdminPuestosAreasPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const areas = await prisma.area.findMany({
+async function listarAreasConPuestos() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("areas", "puestos");
+  return prisma.area.findMany({
     orderBy: { nombre: "asc" },
     include: {
       puestos: { orderBy: { nivel: "asc" } },
       _count: { select: { users: true } },
     },
   });
+}
+
+export const metadata = { title: "Admin - Puestos y areas" };
+
+export default async function AdminPuestosAreasPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const areas = await listarAreasConPuestos();
 
   return (
     <div className="space-y-6">

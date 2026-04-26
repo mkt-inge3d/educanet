@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { CONFIG_EMPRESA } from "@/lib/config/empresa";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,11 @@ import { GraduationCap, Mail, HelpCircle, ArrowRight } from "lucide-react";
 
 export const metadata = { title: "Induccion" };
 
-export default async function InduccionPage() {
-  const user = await requireAuth();
-
-  // Get induction course progress
-  const curso = await prisma.curso.findUnique({
+async function obtenerCursoInduccion(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("induccion", `induccion-${userId}`);
+  return prisma.curso.findUnique({
     where: { slug: "induccion-empresa" },
     include: {
       modulos: {
@@ -23,7 +24,7 @@ export default async function InduccionPage() {
             select: {
               id: true,
               progresos: {
-                where: { userId: user.id },
+                where: { userId },
                 select: { completada: true },
               },
             },
@@ -32,6 +33,12 @@ export default async function InduccionPage() {
       },
     },
   });
+}
+
+export default async function InduccionPage() {
+  const user = await requireAuth();
+
+  const curso = await obtenerCursoInduccion(user.id);
 
   let progreso = 0;
   let totalLecciones = 0;

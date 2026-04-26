@@ -4,6 +4,7 @@ import { mesActual } from "@/lib/gamificacion/periodo";
 import { obtenerProgresoMes } from "@/lib/kpis/mi-progreso-queries";
 import { puedeResponderEncuesta } from "@/lib/encuestas/queries";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { RangoActualDestacado } from "@/components/mi-progreso/RangoActualDestacado";
 import { BreakdownXPFuentes } from "@/components/mi-progreso/BreakdownXPFuentes";
 import { CardHitosKpiResumen } from "@/components/mi-progreso/CardHitosKpiResumen";
@@ -35,6 +36,20 @@ const MESES_ES = [
 
 export const metadata = { title: "Mi progreso" };
 
+async function obtenerNombresKpisUsuario(
+  userId: string,
+  mes: number,
+  anio: number
+) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("kpis", `kpis-${userId}`);
+  return prisma.kpiAsignacion.findMany({
+    where: { userId, periodoMes: mes, periodoAnio: anio },
+    select: { definicion: { select: { nombre: true } } },
+  });
+}
+
 export default async function MiProgresoPage() {
   const user = await requireAuth();
   const { mes, anio } = mesActual();
@@ -43,10 +58,7 @@ export default async function MiProgresoPage() {
   const [progreso, encuestaCheck, kpisUser] = await Promise.all([
     obtenerProgresoMes(user.id, mes, anio),
     puedeResponderEncuesta(user.id),
-    prisma.kpiAsignacion.findMany({
-      where: { userId: user.id, periodoMes: mes, periodoAnio: anio },
-      select: { definicion: { select: { nombre: true } } },
-    }),
+    obtenerNombresKpisUsuario(user.id, mes, anio),
   ]);
 
   const nombresKpis = kpisUser.map((k) => k.definicion.nombre);

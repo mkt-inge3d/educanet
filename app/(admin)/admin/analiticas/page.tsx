@@ -1,17 +1,16 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, BookOpen, Award, TrendingUp, Trophy, BarChart3 } from "lucide-react";
 
-export const metadata = { title: "Admin - Analiticas" };
-
-export default async function AdminAnaliticasPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
+async function obtenerDatosAnaliticas() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-analiticas");
   const ahora = new Date();
   const hace30d = new Date(ahora.getTime() - 30 * 86400000);
-
   const [
     totalUsuarios,
     activos7d,
@@ -22,8 +21,12 @@ export default async function AdminAnaliticasPage() {
     porArea,
   ] = await Promise.all([
     prisma.user.count({ where: { activo: true } }),
-    prisma.user.count({ where: { ultimaActividad: { gte: new Date(ahora.getTime() - 7 * 86400000) } } }),
-    prisma.progresoLeccion.count({ where: { completada: true, fechaCompletada: { gte: hace30d } } }),
+    prisma.user.count({
+      where: { ultimaActividad: { gte: new Date(ahora.getTime() - 7 * 86400000) } },
+    }),
+    prisma.progresoLeccion.count({
+      where: { completada: true, fechaCompletada: { gte: hace30d } },
+    }),
     prisma.certificado.count({ where: { fechaEmision: { gte: hace30d } } }),
     prisma.badge.findMany({
       include: { _count: { select: { usuarios: true } } },
@@ -37,11 +40,34 @@ export default async function AdminAnaliticasPage() {
       orderBy: { nivel: "asc" },
     }),
     prisma.area.findMany({
-      include: {
-        _count: { select: { users: true, cursos: true } },
-      },
+      include: { _count: { select: { users: true, cursos: true } } },
     }),
   ]);
+  return {
+    totalUsuarios,
+    activos7d,
+    leccionesMes,
+    certificadosMes,
+    topBadges,
+    distribucionNiveles,
+    porArea,
+  };
+}
+
+export const metadata = { title: "Admin - Analiticas" };
+
+export default async function AdminAnaliticasPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const {
+    totalUsuarios,
+    activos7d,
+    leccionesMes,
+    certificadosMes,
+    topBadges,
+    distribucionNiveles,
+    porArea,
+  } = await obtenerDatosAnaliticas();
 
   return (
     <div className="space-y-8">

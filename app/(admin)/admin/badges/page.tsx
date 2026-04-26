@@ -1,18 +1,26 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy } from "lucide-react";
+
+async function listarBadgesAdmin() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("badges", "admin-badges");
+  return prisma.badge.findMany({
+    orderBy: { orden: "asc" },
+    include: { _count: { select: { usuarios: true } } },
+  });
+}
 
 export const metadata = { title: "Admin - Badges" };
 
 export default async function AdminBadgesPage() {
   await requireRole(["ADMIN"]);
 
-  const badges = await prisma.badge.findMany({
-    orderBy: { orden: "asc" },
-    include: { _count: { select: { usuarios: true } } },
-  });
+  const badges = await listarBadgesAdmin();
 
   return (
     <div className="space-y-6">

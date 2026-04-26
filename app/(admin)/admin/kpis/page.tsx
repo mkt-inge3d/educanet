@@ -2,15 +2,15 @@ import Link from "next/link";
 import { Settings, Target } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export const metadata = { title: "Admin - KPIs" };
-
-export default async function AdminKpisPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const puestos = await prisma.puesto.findMany({
+async function listarPuestosConKpis() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("admin-kpis-config", "puestos");
+  return prisma.puesto.findMany({
     include: {
       area: { select: { nombre: true } },
       kpiDefiniciones: {
@@ -21,6 +21,14 @@ export default async function AdminKpisPage() {
     },
     orderBy: [{ areaId: "asc" }, { nivel: "asc" }],
   });
+}
+
+export const metadata = { title: "Admin - KPIs" };
+
+export default async function AdminKpisPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const puestos = await listarPuestosConKpis();
 
   return (
     <div className="space-y-6">

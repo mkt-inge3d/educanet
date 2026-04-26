@@ -4,6 +4,7 @@ import { ArrowLeft, Video } from "lucide-react";
 
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,15 +12,11 @@ import { VideoUrlEditor } from "./VideoUrlEditor";
 
 export const metadata = { title: "Admin - Editor de curso" };
 
-export default async function AdminCursoEditorPage({
-  params,
-}: {
-  params: Promise<{ cursoId: string }>;
-}) {
-  await requireRole(["ADMIN"]);
-  const { cursoId } = await params;
-
-  const curso = await prisma.curso.findUnique({
+async function obtenerCursoConModulos(cursoId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("cursos", `curso-${cursoId}`);
+  return prisma.curso.findUnique({
     where: { id: cursoId },
     include: {
       modulos: {
@@ -40,7 +37,17 @@ export default async function AdminCursoEditorPage({
       },
     },
   });
+}
 
+export default async function AdminCursoEditorPage({
+  params,
+}: {
+  params: Promise<{ cursoId: string }>;
+}) {
+  await requireRole(["ADMIN"]);
+  const { cursoId } = await params;
+
+  const curso = await obtenerCursoConModulos(cursoId);
   if (!curso) notFound();
 
   return (

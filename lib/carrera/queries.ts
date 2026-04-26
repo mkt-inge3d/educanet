@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type { RutaCarreraCompleta, PuestoEnCamino } from "@/types/carrera";
 
 export async function obtenerRutaActualUsuario(
   userId: string
 ): Promise<RutaCarreraCompleta | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("carrera", `carrera-${userId}`);
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { puestoId: true },
@@ -122,6 +126,9 @@ export async function obtenerRutaActualUsuario(
 export async function obtenerPuestosSuperiores(
   puestoActualId: string
 ): Promise<PuestoEnCamino[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("carrera-puestos", `carrera-puestos-${puestoActualId}`);
   const actual = await prisma.puesto.findUnique({
     where: { id: puestoActualId },
     select: { id: true, nombre: true, nivel: true, areaId: true },

@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { OnboardingToggle } from "./OnboardingToggle";
@@ -19,16 +20,23 @@ const LABEL_CATEGORIA: Record<string, string> = {
   CONTENIDO_CURSOS: "Cursos",
 };
 
-export default async function AdminCatalogoTareasPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const tareas = await prisma.catalogoTarea.findMany({
+async function obtenerCatalogoTareas() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalogo-tareas");
+  return prisma.catalogoTarea.findMany({
     include: {
       rolResponsable: { select: { nombre: true } },
       _count: { select: { checklistItems: true, instancias: true } },
     },
     orderBy: [{ categoria: "asc" }, { orden: "asc" }],
   });
+}
+
+export default async function AdminCatalogoTareasPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const tareas = await obtenerCatalogoTareas();
 
   const porCategoria = new Map<string, typeof tareas>();
   for (const t of tareas) {

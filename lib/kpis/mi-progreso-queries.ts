@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type { FuenteXP, TipoRango } from "@prisma/client";
 import { calcularCumplimientoKpis } from "./calculo";
 import {
@@ -49,6 +50,9 @@ export async function obtenerProgresoMes(
   mes: number,
   anio: number
 ): Promise<ProgresoMes> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("mi-progreso", `mi-progreso-${userId}`);
   const [puntosPorFuente, cumplimientoKpis] = await Promise.all([
     sumarPuntosPorFuenteMes(userId, mes, anio),
     calcularCumplimientoKpis({ userId, mes, anio }),
@@ -94,6 +98,9 @@ export async function obtenerKpisConAsignaciones(
   mes: number,
   anio: number
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("kpis", `kpis-${userId}`);
   return prisma.kpiAsignacion.findMany({
     where: { userId, periodoMes: mes, periodoAnio: anio },
     include: {

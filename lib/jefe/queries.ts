@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type { TipoRango } from "@prisma/client";
 import { obtenerPilotoContextoPorArea } from "@/lib/piloto/queries";
 
@@ -31,6 +32,9 @@ export async function obtenerDashboardJefe(params: {
   mes: number;
   anio: number;
 }): Promise<DashboardJefeData> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("jefe-dashboard", `jefe-dashboard-${params.jefeId}`);
   const jefe = await prisma.user.findUnique({
     where: { id: params.jefeId },
     select: { areaId: true },
@@ -112,6 +116,9 @@ export async function obtenerAdopcionEquipo(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("jefe-adopcion", `jefe-adopcion-${params.areaId}`);
   const miembros = await prisma.user.findMany({
     where: { areaId: params.areaId, activo: true },
     select: { id: true },

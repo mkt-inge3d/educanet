@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,12 +8,11 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { CursoPublicarSwitch } from "./curso-publicar-switch";
 
-export const metadata = { title: "Admin - Cursos" };
-
-export default async function AdminCursosPage() {
-  await requireRole(["ADMIN"]);
-
-  const cursos = await prisma.curso.findMany({
+async function listarCursosAdmin() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("cursos", "admin-cursos");
+  return prisma.curso.findMany({
     orderBy: { orden: "asc" },
     include: {
       area: { select: { nombre: true } },
@@ -20,6 +20,14 @@ export default async function AdminCursosPage() {
       modulos: { select: { _count: { select: { lecciones: true } } } },
     },
   });
+}
+
+export const metadata = { title: "Admin - Cursos" };
+
+export default async function AdminCursosPage() {
+  await requireRole(["ADMIN"]);
+
+  const cursos = await listarCursosAdmin();
 
   return (
     <div className="space-y-6">

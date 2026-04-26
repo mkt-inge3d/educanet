@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 
 export async function obtenerKpisDashboard() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-kpis");
   const ahora = new Date();
   const hace30Dias = new Date(ahora.getTime() - 30 * 86400000);
   const hace7Dias = new Date(ahora.getTime() - 7 * 86400000);
@@ -39,6 +43,9 @@ export async function obtenerKpisDashboard() {
 }
 
 export async function obtenerTopCursos(limite = 5) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("admin-top-cursos", "cursos");
   const cursos = await prisma.curso.findMany({
     where: { publicado: true },
     include: {
@@ -59,6 +66,9 @@ export async function obtenerTopCursos(limite = 5) {
 }
 
 export async function obtenerUsuariosRecientes(limite = 5) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-usuarios");
   return prisma.user.findMany({
     where: { activo: true },
     orderBy: { createdAt: "desc" },

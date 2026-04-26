@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { mesActual, getSemanaISO } from "@/lib/gamificacion/periodo";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { KineticTitle } from "@/components/ui/primitives/KineticTitle";
 import { HaloBackground } from "@/components/ui/primitives/HaloBackground";
 import { LeyendaTipos } from "@/components/kpis/LeyendaTipos";
@@ -35,13 +36,12 @@ const SECCIONES: Array<{
   },
 ];
 
-export default async function MiProgresoKpisPage() {
-  const user = await requireAuth();
-  const { mes, anio } = mesActual();
-  const { semana } = getSemanaISO(new Date());
-
-  const asignaciones = await prisma.kpiAsignacion.findMany({
-    where: { userId: user.id, periodoMes: mes, periodoAnio: anio },
+async function obtenerAsignacionesKpi(userId: string, mes: number, anio: number) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("kpis", `kpis-${userId}`);
+  return prisma.kpiAsignacion.findMany({
+    where: { userId, periodoMes: mes, periodoAnio: anio },
     include: {
       definicion: true,
       registros: {
@@ -51,6 +51,14 @@ export default async function MiProgresoKpisPage() {
     },
     orderBy: { definicion: { orden: "asc" } },
   });
+}
+
+export default async function MiProgresoKpisPage() {
+  const user = await requireAuth();
+  const { mes, anio } = mesActual();
+  const { semana } = getSemanaISO(new Date());
+
+  const asignaciones = await obtenerAsignacionesKpi(user.id, mes, anio);
 
   const porTipo = (tipo: TipoFuenteKpi) =>
     asignaciones.filter((a) => a.definicion.tipoFuente === tipo);

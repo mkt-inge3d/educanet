@@ -3,20 +3,17 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { DefinicionEditor } from "./definicion-editor";
 
 export const metadata = { title: "Admin - Definiciones de KPI" };
 
-export default async function AdminKpisPuestoPage({
-  params,
-}: {
-  params: Promise<{ puestoId: string }>;
-}) {
-  await requireRole(["ADMIN", "RRHH"]);
-  const { puestoId } = await params;
-
-  const puesto = await prisma.puesto.findUnique({
+async function obtenerPuestoConKpis(puestoId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("puestos", `puesto-kpis-${puestoId}`);
+  return prisma.puesto.findUnique({
     where: { id: puestoId },
     include: {
       area: { select: { nombre: true } },
@@ -26,6 +23,17 @@ export default async function AdminKpisPuestoPage({
       },
     },
   });
+}
+
+export default async function AdminKpisPuestoPage({
+  params,
+}: {
+  params: Promise<{ puestoId: string }>;
+}) {
+  await requireRole(["ADMIN", "RRHH"]);
+  const { puestoId } = await params;
+
+  const puesto = await obtenerPuestoConKpis(puestoId);
   if (!puesto) notFound();
 
   const total = puesto.kpiDefiniciones.reduce((s, d) => s + (d.peso ?? 0), 0);

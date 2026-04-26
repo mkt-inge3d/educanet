@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { rangoMes } from "@/lib/gamificacion/periodo";
 import type {
   CategoriaTarea,
@@ -8,6 +9,9 @@ import type {
 /** Tareas activas (no cerradas) de un usuario, incluyendo las que ejecuta
  *  por ayuda cruzada. */
 export async function obtenerTareasUsuario(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-${userId}`);
   return prisma.tareaInstancia.findMany({
     where: {
       OR: [{ asignadoAId: userId }, { ejecutadaRealmenteId: userId }],
@@ -27,6 +31,9 @@ export async function obtenerTareasUsuario(userId: string) {
 }
 
 export async function obtenerTareaDetalle(tareaId: string, userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tarea-detalle-${tareaId}`);
   const tarea = await prisma.tareaInstancia.findUnique({
     where: { id: tareaId },
     include: {
@@ -66,6 +73,9 @@ export async function obtenerTareaDetalle(tareaId: string, userId: string) {
  * el widget "Tarea actual" del home.
  */
 export async function obtenerTareaActual(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-${userId}`);
   return prisma.tareaInstancia.findFirst({
     where: {
       OR: [{ asignadoAId: userId }, { ejecutadaRealmenteId: userId }],
@@ -87,6 +97,9 @@ export async function obtenerEstadisticasTareasUsuario(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-${params.userId}`);
   const { inicio, fin } = rangoMes(params.mes, params.anio);
   const ownershipFilter = {
     OR: [
@@ -150,6 +163,9 @@ export async function obtenerEstadisticasTareasUsuario(params: {
 }
 
 export async function obtenerWorkflowsActivos(areaId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("workflows", `workflows-area-${areaId}`);
   // Todas las instancias donde haya tareas asignadas a gente del área.
   const workflows = await prisma.workflowInstancia.findMany({
     where: {
@@ -196,6 +212,9 @@ export async function obtenerWorkflowsActivos(areaId: string) {
  * Cuellos de botella: tareas BLOQUEADAs con >=3 días esperando.
  */
 export async function obtenerCuellosBottella(areaId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-area-${areaId}`);
   const hace3Dias = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
   return prisma.tareaInstancia.findMany({
     where: {
@@ -220,6 +239,9 @@ export async function obtenerMatrizAyudaCruzada(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-area-${params.areaId}`);
   const { inicio, fin } = rangoMes(params.mes, params.anio);
   const ayudas = await prisma.tareaInstancia.findMany({
     where: {
@@ -279,6 +301,9 @@ export async function obtenerMatrizAyudaCruzada(params: {
  * subestima el tiempo real).
  */
 export async function obtenerVariabilidadTiempos(areaId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("tareas", `tareas-area-${areaId}`);
   const completadas = await prisma.tareaInstancia.findMany({
     where: {
       estado: "COMPLETADA",
@@ -332,6 +357,9 @@ export async function obtenerTiempoPorCategoriaEquipo(params: {
   mes: number;
   anio: number;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-area-${params.areaId}`);
   const { inicio, fin } = rangoMes(params.mes, params.anio);
 
   const tareas = await prisma.tareaInstancia.findMany({
@@ -379,6 +407,9 @@ export async function obtenerTiempoPorCategoriaEquipo(params: {
 
 /** Lista de plantillas activas (para el modal de "programar workflow"). */
 export async function obtenerPlantillasActivas() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("workflow-plantillas");
   return prisma.workflowPlantilla.findMany({
     where: { activo: true },
     orderBy: { nombre: "asc" },
@@ -399,6 +430,9 @@ export async function obtenerCompanerosArea(params: {
   areaId: string;
   excluirUserId: string;
 }) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("companeros", `companeros-area-${params.areaId}`);
   return prisma.user.findMany({
     where: {
       areaId: params.areaId,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import type {
   LeccionDetalleCompleta,
   ModuloConLeccionesYProgreso,
@@ -10,6 +11,9 @@ export async function obtenerLeccionCompleta(
   leccionSlug: string,
   userId: string
 ): Promise<LeccionDetalleCompleta | null> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("lecciones", `leccion-${leccionSlug}`, `leccion-usuario-${userId}`);
   const curso = await prisma.curso.findUnique({
     where: { slug: cursoSlug },
     select: { id: true, slug: true, titulo: true, puntosRecompensa: true, publicado: true },
@@ -87,6 +91,9 @@ export async function obtenerEstructuraCurso(
   cursoSlug: string,
   userId: string
 ): Promise<ModuloConLeccionesYProgreso[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("estructura-curso", `estructura-${cursoSlug}-${userId}`);
   const curso = await prisma.curso.findUnique({
     where: { slug: cursoSlug },
     include: {
@@ -135,6 +142,9 @@ export async function obtenerLeccionesAdyacentes(
   moduloOrden: number,
   leccionOrden: number
 ): Promise<{ anterior: LeccionAdyacente | null; siguiente: LeccionAdyacente | null }> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("lecciones-adyacentes", `adyacentes-${cursoSlug}`);
   const curso = await prisma.curso.findUnique({
     where: { slug: cursoSlug },
     include: {

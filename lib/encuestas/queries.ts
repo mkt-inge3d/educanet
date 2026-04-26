@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { getSemanaISO } from "@/lib/gamificacion/periodo";
 
 export async function obtenerEncuestaSemanaActual(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`encuesta-${userId}`);
   const { semana, anio } = getSemanaISO(new Date());
   return prisma.encuestaSemanal.findUnique({
     where: {
@@ -19,6 +23,9 @@ export async function puedeResponderEncuesta(userId: string): Promise<{
   razon?: string;
   yaRespondida?: boolean;
 }> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`encuesta-${userId}`);
   const ahora = new Date();
   const dia = ahora.getDay(); // 0=domingo, 5=viernes, 6=sabado
   const disponible = dia === 0 || dia === 5 || dia === 6;
@@ -82,6 +89,9 @@ export async function obtenerAgregadosEncuestas(params: {
   mes: number;
   anio: number;
 }): Promise<AgregadosEncuesta> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("encuestas", `encuestas-area-${params.areaId}`);
   const inicio = new Date(params.anio, params.mes - 1, 1);
   const fin = new Date(params.anio, params.mes, 0, 23, 59, 59);
 

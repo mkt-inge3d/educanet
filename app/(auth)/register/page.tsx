@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { RegisterForm } from "./register-form";
 
 export const metadata = { title: "Crear cuenta" };
 
-export default async function RegisterPage() {
-  const areas = await prisma.area.findMany({
+async function obtenerAreasConPuestos() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("areas", "puestos");
+  return prisma.area.findMany({
     orderBy: { nombre: "asc" },
     include: {
       puestos: {
@@ -14,6 +18,10 @@ export default async function RegisterPage() {
       },
     },
   });
+}
+
+export default async function RegisterPage() {
+  const areas = await obtenerAreasConPuestos();
 
   const areasConPuestos = areas
     .filter((a) => a.puestos.length > 0)

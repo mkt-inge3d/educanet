@@ -5,6 +5,7 @@ import { obtenerDatosHome } from "@/lib/dashboard/queries";
 import { obtenerProgresoMes } from "@/lib/kpis/mi-progreso-queries";
 import { mesActual } from "@/lib/gamificacion/periodo";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 
 import { BentoGrid, BentoItem } from "@/components/ui/primitives/BentoGrid";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +26,13 @@ import { WidgetTareaActual } from "@/components/tareas/WidgetTareaActual";
 
 export const metadata = { title: "Inicio" };
 
+async function obtenerMisionesResumen(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(`misiones-resumen-${userId}`);
+  return prisma.mision.groupBy({ by: ["estado"], where: { userId }, _count: true });
+}
+
 export default async function HomePage() {
   const user = await requireAuth();
   const { mes, anio } = mesActual();
@@ -32,11 +40,7 @@ export default async function HomePage() {
   const [datos, progreso, misionesCount] = await Promise.all([
     obtenerDatosHome(user.id),
     obtenerProgresoMes(user.id, mes, anio),
-    prisma.mision.groupBy({
-      by: ["estado"],
-      where: { userId: user.id },
-      _count: true,
-    }),
+    obtenerMisionesResumen(user.id),
   ]);
 
   if (!datos) {

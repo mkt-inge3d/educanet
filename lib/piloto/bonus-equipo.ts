@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { procesarEvento } from "@/lib/gamificacion/motor";
 
 export type ResultadoBonus = {
@@ -126,6 +127,9 @@ export async function obtenerProgresoBonusEquipo(
   mes: number,
   anio: number
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("piloto-bonus", `piloto-bonus-${areaId}`);
   const config = await prisma.configuracionPiloto.findUnique({
     where: { areaId },
     select: {

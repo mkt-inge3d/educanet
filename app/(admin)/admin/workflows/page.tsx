@@ -2,16 +2,18 @@ import Link from "next/link";
 
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 export const metadata = { title: "Admin · Workflows" };
 
-export default async function AdminWorkflowsPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const [plantillas, instancias] = await Promise.all([
+async function obtenerDatosWorkflows() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("workflows");
+  return Promise.all([
     prisma.workflowPlantilla.findMany({
       include: {
         _count: { select: { tareas: true, instancias: true } },
@@ -29,6 +31,12 @@ export default async function AdminWorkflowsPage() {
       take: 30,
     }),
   ]);
+}
+
+export default async function AdminWorkflowsPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const [plantillas, instancias] = await obtenerDatosWorkflows();
 
   return (
     <div className="space-y-8">

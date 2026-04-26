@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { obtenerUrlFirmadaEvidencia } from "./evidencia-storage";
 import { isoWeek } from "./instancias-generador";
 
@@ -52,6 +53,9 @@ export async function obtenerHitosUsuario(
   periodoMes: number,
   periodoAnio: number
 ): Promise<ProgresoHitosUsuario> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("hitos", `hitos-${userId}`);
   const asignaciones = await prisma.kpiAsignacionMes.findMany({
     where: {
       userId,
@@ -176,6 +180,9 @@ export type ItemValidacion = {
  * la regresa via revertirAprobado.
  */
 export async function obtenerColaValidacionJefe(jefeAreaId: string | null) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("hitos-validacion", `hitos-validacion-${jefeAreaId ?? "null"}`);
   if (!jefeAreaId) return { items: [] as ItemValidacion[], total: 0 };
 
   const instancias = await prisma.kpiInstancia.findMany({
@@ -253,6 +260,9 @@ export async function obtenerConfiguracionMesJefe(
   periodoMes: number,
   periodoAnio: number
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("hitos-config", `hitos-config-jefe-${jefeAreaId ?? "null"}`);
   if (!jefeAreaId) return { items: [] as ItemConfiguracion[] };
 
   const asignaciones = await prisma.kpiAsignacionMes.findMany({

@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 
 export async function obtenerMetricasPeriodoActual(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("desempeno", `desempeno-${userId}`);
   const now = new Date();
   return prisma.metricaDesempeno.findMany({
     where: {
@@ -15,6 +19,9 @@ export async function obtenerHistoricoMetricas(
   userId: string,
   limite = 12
 ) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("desempeno", `desempeno-${userId}`);
   return prisma.metricaDesempeno.findMany({
     where: { userId },
     orderBy: { fechaFin: "desc" },
@@ -33,6 +40,9 @@ export type ResumenDesempeno = {
 export async function obtenerResumenDesempeno(
   userId: string
 ): Promise<ResumenDesempeno> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("desempeno", `desempeno-${userId}`);
   const [actuales, historico, totalCumplidos] = await Promise.all([
     obtenerMetricasPeriodoActual(userId),
     obtenerHistoricoMetricas(userId),

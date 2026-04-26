@@ -1,15 +1,15 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
 
-export const metadata = { title: "Admin - Rutas de carrera" };
-
-export default async function AdminRutasPage() {
-  await requireRole(["ADMIN", "RRHH"]);
-
-  const rutas = await prisma.rutaCarrera.findMany({
+async function listarRutasCarrera() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("carrera", "rutas-carrera");
+  return prisma.rutaCarrera.findMany({
     include: {
       puestoOrigen: { select: { nombre: true } },
       puestoDestino: { select: { nombre: true } },
@@ -17,6 +17,14 @@ export default async function AdminRutasPage() {
     },
     orderBy: { titulo: "asc" },
   });
+}
+
+export const metadata = { title: "Admin - Rutas de carrera" };
+
+export default async function AdminRutasPage() {
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const rutas = await listarRutasCarrera();
 
   return (
     <div className="space-y-6">

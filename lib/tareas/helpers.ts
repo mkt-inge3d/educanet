@@ -3,6 +3,7 @@
  * Y tareas ad-hoc uniformemente.
  */
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { rangoMes, mesActual } from "@/lib/gamificacion/periodo";
 
 // Re-export las funciones puras para que server-only consumers puedan seguir
@@ -87,6 +88,9 @@ export async function obtenerProyeccionMesUsuario(userId: string): Promise<{
   factor: number;
   puntosOtorgadosReales: number;
 }> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("tareas", `tareas-proyeccion-${userId}`);
   const { mes, anio } = mesActual();
   const { inicio, fin } = rangoMes(mes, anio);
 

@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -15,13 +16,20 @@ import { es } from "date-fns/locale";
 
 export const metadata = { title: "Mi perfil" };
 
+async function obtenerContadoresUsuario(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("logros", `logros-${userId}`, "certificados", `certificados-${userId}`);
+  return Promise.all([
+    prisma.userBadge.count({ where: { userId } }),
+    prisma.certificado.count({ where: { userId } }),
+  ]);
+}
+
 export default async function PerfilPage() {
   const user = await requireAuth();
 
-  const [badgesCount, certCount] = await Promise.all([
-    prisma.userBadge.count({ where: { userId: user.id } }),
-    prisma.certificado.count({ where: { userId: user.id } }),
-  ]);
+  const [badgesCount, certCount] = await obtenerContadoresUsuario(user.id);
 
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
   const antiguedad = user.fechaIngreso

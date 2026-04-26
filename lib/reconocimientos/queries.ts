@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 
 const detalleInclude = {
   nominador: {
@@ -23,6 +24,9 @@ const detalleInclude = {
 } as const;
 
 export async function listarCategorias() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("categorias-reconocimiento");
   return prisma.categoriaReconocimiento.findMany({
     where: { activa: true },
     orderBy: { orden: "asc" },
@@ -35,6 +39,9 @@ export async function obtenerReconocimientosDelEquipo(params: {
   limite?: number;
   cursor?: string;
 }) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reconocimientos", `reconocimientos-area-${params.areaId}`);
   const limite = params.limite ?? 20;
   const registros = await prisma.reconocimiento.findMany({
     where: {
@@ -59,6 +66,9 @@ export async function obtenerReconocimientosDelEquipo(params: {
 }
 
 export async function obtenerReconocimientosRecibidos(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reconocimientos", `reconocimientos-usuario-${userId}`);
   return prisma.reconocimiento.findMany({
     where: { reconocidoId: userId },
     orderBy: { createdAt: "desc" },
@@ -68,6 +78,9 @@ export async function obtenerReconocimientosRecibidos(userId: string) {
 }
 
 export async function obtenerReconocimientosDados(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reconocimientos", `reconocimientos-dados-${userId}`);
   return prisma.reconocimiento.findMany({
     where: { nominadorId: userId },
     orderBy: { createdAt: "desc" },
@@ -107,6 +120,9 @@ export async function obtenerCompanerosDelArea(params: {
   areaId: string;
   excluirUserId: string;
 }) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("companeros", `companeros-area-${params.areaId}`);
   return prisma.user.findMany({
     where: {
       areaId: params.areaId,
@@ -130,6 +146,9 @@ export async function contarRecibidosMes(
   mes: number,
   anio: number
 ): Promise<number> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reconocimientos", `reconocimientos-usuario-${userId}`);
   const inicio = new Date(anio, mes - 1, 1);
   const fin = new Date(anio, mes, 0, 23, 59, 59);
   return prisma.reconocimiento.count({

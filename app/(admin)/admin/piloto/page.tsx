@@ -1,20 +1,38 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { mesActual } from "@/lib/gamificacion/periodo";
 import { obtenerDashboardJefe, obtenerAdopcionEquipo } from "@/lib/jefe/queries";
 import { obtenerProgresoBonusEquipo } from "@/lib/piloto/bonus-equipo";
 import { obtenerAgregadosEncuestas } from "@/lib/encuestas/queries";
 import { PilotoPanelCliente } from "./piloto-panel-cliente";
 
+async function obtenerConfigPiloto() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("piloto-config");
+  return prisma.configuracionPiloto.findMany({
+    include: { area: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function obtenerCualquierMiembroDelArea(areaId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("companeros", `companeros-area-${areaId}`);
+  return prisma.user.findFirst({
+    where: { areaId, activo: true },
+    select: { id: true },
+  });
+}
+
 export const metadata = { title: "Admin - Piloto" };
 
 export default async function AdminPilotoPage() {
   await requireRole(["ADMIN", "RRHH"]);
 
-  const configs = await prisma.configuracionPiloto.findMany({
-    include: { area: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const configs = await obtenerConfigPiloto();
 
   if (configs.length === 0) {
     return (
@@ -32,13 +50,7 @@ export default async function AdminPilotoPage() {
   const config = configs[0];
   const { mes, anio } = mesActual();
 
-  // Usar cualquier miembro como referencia para el dashboard (bypassa
-  // el filtro "jefeId"). Aqui como admin, siempre vemos todo (no
-  // anonimizado desde la perspectiva del admin).
-  const cualquierMiembro = await prisma.user.findFirst({
-    where: { areaId: config.areaId, activo: true },
-    select: { id: true },
-  });
+  const cualquierMiembro = await obtenerCualquierMiembroDelArea(config.areaId);
 
   const dashboard = cualquierMiembro
     ? await obtenerDashboardJefe({

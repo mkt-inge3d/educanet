@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { calcularProgresoCurso } from "./calculos";
 
 export async function obtenerDatosHome(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("home-dashboard", `home-usuario-${userId}`);
   const [
     usuario,
     cursos,

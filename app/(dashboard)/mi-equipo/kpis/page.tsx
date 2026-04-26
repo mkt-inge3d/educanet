@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { mesActual } from "@/lib/gamificacion/periodo";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { obtenerEquipoIds } from "@/lib/kpis/jerarquia";
 import { KineticTitle } from "@/components/ui/primitives/KineticTitle";
 import { HaloBackground } from "@/components/ui/primitives/HaloBackground";
@@ -11,17 +12,16 @@ import { EditorObjetivosRol } from "@/components/jefe/EditorObjetivosRol";
 
 export const metadata = { title: "Validación de KPIs" };
 
-export default async function MiEquipoKpisPage() {
-  const user = await requireAuth();
-
-  const esJefe = user.puesto?.nombre?.startsWith("Jefe") ?? false;
-  const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
-  if (!esJefe && !esAdmin) redirect("/unauthorized");
-  if (!user.areaId) redirect("/mi-progreso");
-
-  const { mes, anio } = mesActual();
-  const equipoIds = await obtenerEquipoIds(user.id);
-
+async function obtenerDatosKpisEquipo(
+  userId: string,
+  areaId: string,
+  mes: number,
+  anio: number,
+) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("kpis-validacion", `kpis-validacion-${userId}`);
+  const equipoIds = await obtenerEquipoIds(userId);
   const [pendientes, asignacionesPorJefe, puestosConKpis] = await Promise.all([
     prisma.kpiRegistroSemanal.findMany({
       where: {
@@ -60,7 +60,7 @@ export default async function MiEquipoKpisPage() {
       },
     }),
     prisma.puesto.findMany({
-      where: { areaId: user.areaId },
+      where: { areaId },
       include: {
         kpiDefiniciones: {
           where: { activa: true, frecuencia: null },
@@ -77,6 +77,21 @@ export default async function MiEquipoKpisPage() {
       orderBy: { nombre: "asc" },
     }),
   ]);
+  return { pendientes, asignacionesPorJefe, puestosConKpis };
+}
+
+export default async function MiEquipoKpisPage() {
+  const user = await requireAuth();
+
+  const esJefe = user.puesto?.nombre?.startsWith("Jefe") ?? false;
+  const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+  if (!esJefe && !esAdmin) redirect("/unauthorized");
+  if (!user.areaId) redirect("/mi-progreso");
+
+  const { mes, anio } = mesActual();
+
+  const { pendientes, asignacionesPorJefe, puestosConKpis } =
+    await obtenerDatosKpisEquipo(user.id, user.areaId, mes, anio);
 
   return (
     <div className="relative mx-auto max-w-4xl space-y-8">

@@ -3,26 +3,21 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { RelacionadosEditor } from "./relacionados-editor";
 
 export const metadata = { title: "Cursos relacionados" };
 
-export default async function CursoRelacionadosPage({
-  params,
-}: {
-  params: Promise<{ cursoId: string }>;
-}) {
-  await requireRole(["ADMIN"]);
-  const { cursoId } = await params;
-
-  const curso = await prisma.curso.findUnique({
-    where: { id: cursoId },
-    select: { id: true, titulo: true, areaId: true },
-  });
-  if (!curso) notFound();
-
-  const [relacionados, disponibles] = await Promise.all([
+async function obtenerDatosCursoRelacionados(cursoId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("cursos", `curso-${cursoId}`, "cursos-relacionados");
+  const [curso, relacionados, disponibles] = await Promise.all([
+    prisma.curso.findUnique({
+      where: { id: cursoId },
+      select: { id: true, titulo: true, areaId: true },
+    }),
     prisma.cursoRelacionado.findMany({
       where: { cursoOrigenId: cursoId },
       orderBy: { orden: "asc" },
@@ -39,10 +34,7 @@ export default async function CursoRelacionadosPage({
       },
     }),
     prisma.curso.findMany({
-      where: {
-        id: { not: cursoId },
-        publicado: true,
-      },
+      where: { id: { not: cursoId }, publicado: true },
       select: {
         id: true,
         titulo: true,
@@ -51,6 +43,19 @@ export default async function CursoRelacionadosPage({
       orderBy: { titulo: "asc" },
     }),
   ]);
+  return { curso, relacionados, disponibles };
+}
+
+export default async function CursoRelacionadosPage({
+  params,
+}: {
+  params: Promise<{ cursoId: string }>;
+}) {
+  await requireRole(["ADMIN"]);
+  const { cursoId } = await params;
+
+  const { curso, relacionados, disponibles } = await obtenerDatosCursoRelacionados(cursoId);
+  if (!curso) notFound();
 
   const idsRelacionados = new Set(relacionados.map((r) => r.cursoDestinoId));
   const opcionesDisponibles = disponibles.filter(

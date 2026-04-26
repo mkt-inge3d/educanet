@@ -1,21 +1,29 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
+async function listarMetricasAdmin() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-metricas", "desempeno");
+  return prisma.metricaDesempeno.findMany({
+    orderBy: { fechaFin: "desc" },
+    take: 50,
+    include: { user: { select: { nombre: true, apellido: true, email: true } } },
+  });
+}
+
 export const metadata = { title: "Admin - Metricas" };
 
 export default async function AdminMetricasPage() {
   await requireRole(["ADMIN", "RRHH"]);
 
-  const metricas = await prisma.metricaDesempeno.findMany({
-    orderBy: { fechaFin: "desc" },
-    take: 50,
-    include: { user: { select: { nombre: true, apellido: true, email: true } } },
-  });
+  const metricas = await listarMetricasAdmin();
 
   return (
     <div className="space-y-6">

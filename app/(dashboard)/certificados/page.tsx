@@ -1,19 +1,27 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Award } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CertificadoCard } from "@/components/certificados/CertificadoCard";
 
 export const metadata = { title: "Mis certificados" };
 
-export default async function CertificadosPage() {
-  const user = await requireAuth();
-
-  const certificados = await prisma.certificado.findMany({
-    where: { userId: user.id },
+async function obtenerCertificadosUsuario(userId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("certificados", `certificados-${userId}`);
+  return prisma.certificado.findMany({
+    where: { userId },
     include: { curso: { select: { titulo: true, slug: true, instructorNombre: true } } },
     orderBy: { fechaEmision: "desc" },
   });
+}
+
+export default async function CertificadosPage() {
+  const user = await requireAuth();
+
+  const certificados = await obtenerCertificadosUsuario(user.id);
 
   const horasTotales = certificados.reduce(
     (acc, c) => acc + c.horasEquivalentes,

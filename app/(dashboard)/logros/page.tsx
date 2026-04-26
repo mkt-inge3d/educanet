@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { obtenerRankingArea } from "@/lib/gamificacion/rankings";
 import { LogrosHeader } from "@/components/logros/LogrosHeader";
 import { TabMisBadges } from "@/components/logros/TabMisBadges";
@@ -11,41 +12,47 @@ import { puntosParaSiguienteNivel } from "@/lib/gamificacion/puntos";
 
 export const metadata = { title: "Mis logros" };
 
+async function obtenerDatosLogros(userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("logros", `logros-${userId}`, "badges");
+  const [allBadges, userBadges, transacciones, diasConActividad] =
+    await Promise.all([
+      prisma.badge.findMany({ orderBy: { orden: "asc" } }),
+      prisma.userBadge.findMany({
+        where: { userId },
+        include: { badge: true },
+        orderBy: { fechaObtencion: "desc" },
+      }),
+      prisma.transaccionPuntos.findMany({
+        where: { userId },
+        orderBy: { fecha: "desc" },
+        take: 50,
+      }),
+      prisma.transaccionPuntos.findMany({
+        where: { userId },
+        select: { fecha: true },
+        orderBy: { fecha: "desc" },
+        take: 200,
+      }),
+    ]);
+  return { allBadges, userBadges, transacciones, diasConActividad };
+}
+
 export default async function LogrosPage() {
   const user = await requireAuth();
 
-  const [
-    allBadges,
-    userBadges,
-    transacciones,
-    ranking,
-    diasConActividad,
-  ] = await Promise.all([
-    prisma.badge.findMany({ orderBy: { orden: "asc" } }),
-    prisma.userBadge.findMany({
-      where: { userId: user.id },
-      include: { badge: true },
-      orderBy: { fechaObtencion: "desc" },
-    }),
-    prisma.transaccionPuntos.findMany({
-      where: { userId: user.id },
-      orderBy: { fecha: "desc" },
-      take: 50,
-    }),
-    user.areaId && user.mostrarEnRanking
-      ? obtenerRankingArea({
-          areaId: user.areaId,
-          userIdActual: user.id,
-          metrica: "puntos_total",
-        })
-      : null,
-    prisma.transaccionPuntos.findMany({
-      where: { userId: user.id },
-      select: { fecha: true },
-      orderBy: { fecha: "desc" },
-      take: 200,
-    }),
-  ]);
+  const [{ allBadges, userBadges, transacciones, diasConActividad }, ranking] =
+    await Promise.all([
+      obtenerDatosLogros(user.id),
+      user.areaId && user.mostrarEnRanking
+        ? obtenerRankingArea({
+            areaId: user.areaId,
+            userIdActual: user.id,
+            metrica: "puntos_total",
+          })
+        : null,
+    ]);
 
   const badgesObtenidosIds = new Set(userBadges.map((ub) => ub.badgeId));
   const nivelInfo = puntosParaSiguienteNivel(user.nivel, user.puntosTotales);

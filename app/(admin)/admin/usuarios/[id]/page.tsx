@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,14 +15,10 @@ import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Admin - Detalle de usuario" };
 
-export default async function AdminUsuarioDetallePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  await requireRole(["ADMIN", "RRHH"]);
-
+async function obtenerDatosUsuarioAdmin(id: string) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("admin-usuarios", `usuario-${id}`);
   const usuario = await prisma.user.findUnique({
     where: { id },
     include: {
@@ -32,9 +29,7 @@ export default async function AdminUsuarioDetallePage({
       },
     },
   });
-
-  if (!usuario) notFound();
-
+  if (!usuario) return null;
   const [areas, puestos, badges, userBadges, transacciones] = await Promise.all([
     prisma.area.findMany({ orderBy: { nombre: "asc" } }),
     prisma.puesto.findMany({ orderBy: { nombre: "asc" }, include: { area: { select: { nombre: true } } } }),
@@ -50,7 +45,21 @@ export default async function AdminUsuarioDetallePage({
       take: 20,
     }),
   ]);
+  return { usuario, areas, puestos, badges, userBadges, transacciones };
+}
 
+export default async function AdminUsuarioDetallePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  await requireRole(["ADMIN", "RRHH"]);
+
+  const datos = await obtenerDatosUsuarioAdmin(id);
+  if (!datos) notFound();
+
+  const { usuario, areas, puestos, badges, userBadges, transacciones } = datos;
   const initials = `${usuario.nombre[0]}${usuario.apellido[0]}`.toUpperCase();
 
   return (

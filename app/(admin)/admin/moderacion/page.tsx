@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cacheLife, cacheTag } from "next/cache";
 import {
   Tabs,
   TabsContent,
@@ -14,60 +15,59 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { ResolverReporteBoton } from "./resolver-reporte-boton";
 
+async function obtenerReportesPendientes() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reportes-comentarios");
+  return prisma.reporteComentario.findMany({
+    where: { estado: "PENDIENTE" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      comentario: {
+        include: {
+          user: {
+            select: { id: true, nombre: true, apellido: true, avatarUrl: true },
+          },
+          leccion: {
+            select: {
+              slug: true,
+              titulo: true,
+              modulo: {
+                select: { curso: { select: { slug: true, titulo: true } } },
+              },
+            },
+          },
+        },
+      },
+      reportador: { select: { id: true, nombre: true, apellido: true } },
+    },
+  });
+}
+
+async function obtenerReportesResueltos() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("reportes-comentarios");
+  return prisma.reporteComentario.findMany({
+    where: { estado: { in: ["APROBADO", "DESESTIMADO"] } },
+    orderBy: { resueltoEn: "desc" },
+    take: 50,
+    include: {
+      comentario: { select: { contenido: true, oculto: true } },
+      reportador: { select: { nombre: true, apellido: true } },
+      resueltoPor: { select: { nombre: true, apellido: true } },
+    },
+  });
+}
+
 export const metadata = { title: "Admin - Moderacion" };
 
 export default async function ModeracionPage() {
   await requireRole(["ADMIN", "RRHH"]);
 
   const [pendientes, resueltos] = await Promise.all([
-    prisma.reporteComentario.findMany({
-      where: { estado: "PENDIENTE" },
-      orderBy: { createdAt: "desc" },
-      include: {
-        comentario: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nombre: true,
-                apellido: true,
-                avatarUrl: true,
-              },
-            },
-            leccion: {
-              select: {
-                slug: true,
-                titulo: true,
-                modulo: {
-                  select: {
-                    curso: { select: { slug: true, titulo: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-        reportador: {
-          select: { id: true, nombre: true, apellido: true },
-        },
-      },
-    }),
-    prisma.reporteComentario.findMany({
-      where: { estado: { in: ["APROBADO", "DESESTIMADO"] } },
-      orderBy: { resueltoEn: "desc" },
-      take: 50,
-      include: {
-        comentario: {
-          select: { contenido: true, oculto: true },
-        },
-        reportador: {
-          select: { nombre: true, apellido: true },
-        },
-        resueltoPor: {
-          select: { nombre: true, apellido: true },
-        },
-      },
-    }),
+    obtenerReportesPendientes(),
+    obtenerReportesResueltos(),
   ]);
 
   return (
