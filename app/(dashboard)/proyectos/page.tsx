@@ -1,6 +1,5 @@
 import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { cacheLife, cacheTag } from "next/cache"
 import Link from "next/link"
 import { BarChart2, Calendar, CheckCircle2, Clock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,10 +11,6 @@ import { CrearProyectoDialog } from "@/components/proyectos/CrearProyectoDialog"
 export const metadata = { title: "Mis proyectos" }
 
 async function obtenerMisWorkflows(userId: string) {
-  "use cache"
-  cacheLife("minutes")
-  cacheTag("workflows", `user-workflows-${userId}`)
-
   return prisma.workflowInstancia.findMany({
     where: {
       estadoGeneral: { in: ["ACTIVO", "PAUSADO"] },
