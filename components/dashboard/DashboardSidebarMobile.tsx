@@ -13,6 +13,7 @@ import {
   Heart,
   ClipboardCheck,
   Users,
+  BarChart2,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
@@ -38,6 +39,7 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Mi progreso", href: "/mi-progreso", icon: Target },
       { label: "Mis tareas", href: "/tareas", icon: ClipboardCheck },
+      { label: "Mis proyectos", href: "/proyectos", icon: BarChart2 },
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
       { label: "Mi equipo", href: "/mi-equipo", icon: Users, soloJefe: true },
       { label: "Revisar hitos", href: "/mi-equipo/validacion-kpis", icon: ClipboardCheck, soloJefe: true },
