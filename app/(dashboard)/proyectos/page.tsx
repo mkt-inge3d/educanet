@@ -18,8 +18,11 @@ async function obtenerMisWorkflows(userId: string) {
 
   return prisma.workflowInstancia.findMany({
     where: {
-      tareas: { some: { asignadoAId: userId } },
       estadoGeneral: { in: ["ACTIVO", "PAUSADO"] },
+      OR: [
+        { tareas: { some: { asignadoAId: userId } } },
+        { responsableGeneralId: userId },
+      ],
     },
     include: {
       plantilla: { select: { nombre: true, categoria: true } },
