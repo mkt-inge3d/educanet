@@ -495,3 +495,23 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.4);
 }
+
+/* Gantt horizontal scrollbar — visible y con color de acento */
+.gantt-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--muted));
+}
+.gantt-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.gantt-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+.gantt-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
+  border-radius: 4px;
+}
+.gantt-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}

@@ -448,7 +448,7 @@ export function GanttView({
           </div>
           <div
             ref={bodyRef}
-            className="min-w-0 flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-primary/50 [&::-webkit-scrollbar-thumb:hover]:bg-primary"
+            className="gantt-scroll min-w-0 flex-1 overflow-auto"
             onScroll={handleScroll}
           >
             <GanttBody
