@@ -7,7 +7,7 @@ import type {
 } from "@prisma/client";
 
 /** Tareas activas (no cerradas) de un usuario, incluyendo las que ejecuta
- *  por ayuda cruzada. */
+ *  por ayuda cruzada. Solo devuelve tareas de nivel raíz (sin padre). */
 export async function obtenerTareasUsuario(userId: string) {
   "use cache";
   cacheLife("minutes");
@@ -16,6 +16,7 @@ export async function obtenerTareasUsuario(userId: string) {
     where: {
       OR: [{ asignadoAId: userId }, { ejecutadaRealmenteId: userId }],
       estado: { notIn: ["COMPLETADA", "OMITIDA"] },
+      parentId: null,
     },
     include: {
       catalogoTarea: {
@@ -25,6 +26,9 @@ export async function obtenerTareasUsuario(userId: string) {
       },
       workflowInstancia: { select: { id: true, nombre: true, fechaHito: true, contextoMarca: true } },
       checklistMarcados: true,
+      hijos: {
+        select: { id: true, estado: true },
+      },
     },
     orderBy: [{ fechaEstimadaFin: "asc" }, { createdAt: "asc" }],
   });
@@ -55,6 +59,19 @@ export async function obtenerTareaDetalle(tareaId: string, userId: string) {
       asignadoA: { select: { id: true, nombre: true, apellido: true, puesto: { select: { nombre: true } } } },
       ejecutadaRealmente: { select: { id: true, nombre: true, apellido: true } },
       checklistMarcados: true,
+      hijos: {
+        select: {
+          id: true,
+          nombreAdHoc: true,
+          catalogoTarea: { select: { nombre: true } },
+          estado: true,
+          progreso: true,
+          fechaEstimadaInicio: true,
+          fechaEstimadaFin: true,
+          asignadoA: { select: { id: true, nombre: true, apellido: true } },
+        },
+        orderBy: { ordenGantt: "asc" },
+      },
     },
   });
 

@@ -164,6 +164,7 @@ export async function obtenerTareasDeMiembro(params: {
       },
       workflowInstancia: { select: { id: true, nombre: true, fechaHito: true, contextoMarca: true } },
       checklistMarcados: true,
+      hijos: { select: { id: true, estado: true } },
     },
     orderBy: { fechaEstimadaFin: "asc" },
   });

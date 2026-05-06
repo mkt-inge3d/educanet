@@ -11,6 +11,7 @@ import {
   Circle,
   Clock,
   Copy,
+  GitBranch,
   ListChecks,
   Trash2,
   UserCheck,
@@ -41,6 +42,7 @@ type Tarea = Prisma.TareaInstanciaGetPayload<{
     catalogoTarea: { include: { checklistItems: true } };
     workflowInstancia: { select: { id: true; nombre: true; fechaHito: true; contextoMarca: true } };
     checklistMarcados: true;
+    hijos: { select: { id: true; estado: true } };
   };
 }>;
 
@@ -351,6 +353,15 @@ export function TareaCard({ tarea, hideCompleteButton = false, hideActions = fal
             {datos.puntosBase} pts
           </Badge>
           <BadgeNegocio negocio={tarea.negocio} />
+          {tarea.hijos.length > 0 && (() => {
+            const hijosCompletados = tarea.hijos.filter((h) => h.estado === "COMPLETADA").length
+            return (
+              <Badge variant="outline" className="h-5 text-[10px]">
+                <GitBranch className="mr-1 h-3 w-3" />
+                {hijosCompletados}/{tarea.hijos.length}
+              </Badge>
+            )
+          })()}
           {tarea.ejecutadaPorOtro && (
             <Badge variant="outline" className="h-5 text-[10px]">
               <Users className="mr-1 h-3 w-3" />

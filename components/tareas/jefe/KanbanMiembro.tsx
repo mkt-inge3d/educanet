@@ -12,6 +12,7 @@ type Tarea = Prisma.TareaInstanciaGetPayload<{
     catalogoTarea: { include: { checklistItems: true } };
     workflowInstancia: { select: { id: true; nombre: true; fechaHito: true; contextoMarca: true } };
     checklistMarcados: true;
+    hijos: { select: { id: true; estado: true } };
   };
 }>;
 

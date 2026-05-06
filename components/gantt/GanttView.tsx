@@ -20,6 +20,12 @@ import {
 } from "@/lib/gantt/actions"
 import { differenceInDays, startOfDay, addDays } from "date-fns"
 
+function nearestDay(date: Date): Date {
+  const d = startOfDay(date)
+  const ms = date.getTime() - d.getTime()
+  return ms >= 43_200_000 ? addDays(d, 1) : d
+}
+
 const DUR_W = 56  // debe coincidir con GanttSidebar
 
 interface Usuario { id: string; nombre: string; apellido: string }
@@ -64,8 +70,12 @@ export function GanttView({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dragOverrides, setDragOverrides] = useState<Map<string, { inicio: Date; fin: Date }>>(new Map())
-  const [persisting, setPersisting] = useState(false)
   const [depDraw, setDepDraw] = useState<DepDrawState | null>(null)
+
+  // Refs para evitar stale closures en handlers de pointer events
+  const dragStateRef = useRef<DragState | null>(null)
+  const dragOverridesRef = useRef<Map<string, { inicio: Date; fin: Date }>>(new Map())
+  const depDrawRef = useRef<DepDrawState | null>(null)
 
   const bodyRef = useRef<HTMLDivElement>(null)
   const sidebarContainerRef = useRef<HTMLDivElement>(null)
@@ -78,18 +88,28 @@ export function GanttView({
   const depthMap = useMemo(() => assignDepths(tasks), [tasks])
 
   const visibleTasks = useMemo(() => {
-    const sorted = [...tasks].sort((a, b) => {
-      if (!a.parentId && b.parentId) return -1
-      if (a.parentId && !b.parentId) return 1
-      return a.ordenGantt - b.ordenGantt
-    })
-    function isHidden(t: GanttTask): boolean {
-      if (!t.parentId) return false
-      if (collapsed.has(t.parentId)) return true
-      const parent = tasks.find((p) => p.id === t.parentId)
-      return parent ? isHidden(parent) : false
+    // DFS: each parent immediately followed by its children (hierarchical order)
+    const childrenOf = new Map<string | null, GanttTask[]>()
+    for (const t of tasks) {
+      const key = t.parentId ?? null
+      if (!childrenOf.has(key)) childrenOf.set(key, [])
+      childrenOf.get(key)!.push(t)
     }
-    return sorted.filter((t) => !isHidden(t)).map((t) => ({ ...t, depth: depthMap.get(t.id) ?? 0 }))
+    for (const children of childrenOf.values()) {
+      children.sort((a, b) => a.ordenGantt - b.ordenGantt)
+    }
+
+    const ordered: GanttTask[] = []
+    function walk(parentId: string | null) {
+      for (const t of childrenOf.get(parentId) ?? []) {
+        if (!collapsed.has(t.parentId ?? "")) {
+          ordered.push({ ...t, depth: depthMap.get(t.id) ?? 0 })
+          walk(t.id)
+        }
+      }
+    }
+    walk(null)
+    return ordered
   }, [tasks, collapsed, depthMap])
 
   const rowsByTaskId = useMemo(() => {
@@ -216,7 +236,7 @@ export function GanttView({
     const { x: svgX, y: svgY } = toSvgCoords(clientX, clientY)
     const fromX = bar ? (side === "left" ? bar.x : bar.x + bar.w) : svgX
     const fromY = bar ? bar.barY + BAR_H / 2 : svgY
-    setDepDraw({
+    const dd = {
       fromTaskId: taskId,
       fromSide: side,
       fromSvgX: fromX,
@@ -224,7 +244,9 @@ export function GanttView({
       curSvgX: svgX,
       curSvgY: svgY,
       overBarId: null,
-    })
+    } as DepDrawState
+    depDrawRef.current = dd
+    setDepDraw(dd)
   }, [barByTaskId, toSvgCoords])
 
   // ── Drag ──────────────────────────────────────────────────────────────────────
@@ -232,30 +254,36 @@ export function GanttView({
   const handleDragStart = useCallback((payload: DragStartPayload) => {
     const task = tasks.find((t) => t.id === payload.taskId)
     if (!task) return
-    setDragState({
+    const ds: DragState = {
       taskId: payload.taskId,
       mode: payload.mode,
       startPointerX: payload.pointerX,
       originalInicio: task.inicio,
       originalFin: task.fin,
-    })
+    }
+    dragStateRef.current = ds
+    setDragState(ds)
   }, [tasks])
 
   const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    // Dep-draw: actualizar cursor y barra objetivo
-    if (depDraw) {
+    // Dep-draw: actualizar cursor y barra objetivo (lee del ref, siempre actualizado)
+    const dd = depDrawRef.current
+    if (dd) {
       const { x: svgX, y: svgY } = toSvgCoords(e.clientX, e.clientY)
       const row = Math.floor(svgY / ROW_H)
-      const overBar = bars.find((b) => b.row === row && b.taskId !== depDraw.fromTaskId) ?? null
-      setDepDraw((prev) => prev ? { ...prev, curSvgX: svgX, curSvgY: svgY, overBarId: overBar?.taskId ?? null } : null)
+      const overBar = bars.find((b) => b.row === row && b.taskId !== dd.fromTaskId) ?? null
+      const next = { ...dd, curSvgX: svgX, curSvgY: svgY, overBarId: overBar?.taskId ?? null }
+      depDrawRef.current = next
+      setDepDraw(next)
       return
     }
 
-    if (!dragState) return
-    const deltaX = e.clientX - dragState.startPointerX
+    const ds = dragStateRef.current
+    if (!ds) return
+    const deltaX = e.clientX - ds.startPointerX
     const deltaDays = deltaX / pxPerDay
 
-    const { originalInicio, originalFin, mode } = dragState
+    const { originalInicio, originalFin, mode } = ds
     let newInicio = new Date(originalInicio)
     let newFin = new Date(originalFin)
 
@@ -270,15 +298,19 @@ export function GanttView({
       if (newInicio >= newFin) newInicio = addDays(newFin, -0.5)
     }
 
-    setDragOverrides(new Map([[dragState.taskId, { inicio: newInicio, fin: newFin }]]))
-  }, [depDraw, dragState, pxPerDay, bars, toSvgCoords])
+    const newOverrides = new Map([[ds.taskId, { inicio: newInicio, fin: newFin }]])
+    dragOverridesRef.current = newOverrides
+    setDragOverrides(newOverrides)
+  }, [pxPerDay, bars, toSvgCoords])
 
   const handlePointerUp = useCallback(async () => {
-    // Fin dep-draw
-    if (depDraw) {
-      const { fromTaskId, fromSide, overBarId, curSvgX } = depDraw
+    // Fin dep-draw — lee del ref para evitar stale closure
+    const dd = depDrawRef.current
+    if (dd) {
+      depDrawRef.current = null
       setDepDraw(null)
 
+      const { fromTaskId, fromSide, overBarId, curSvgX } = dd
       if (!overBarId || overBarId === fromTaskId) return
 
       const overBar = barByTaskId.get(overBarId)
@@ -290,7 +322,6 @@ export function GanttView({
       else if (fromSide === "left" && toSide === "left") tipo = "INICIO_A_INICIO"
       else if (fromSide === "left" && toSide === "right") tipo = "INICIO_A_FIN"
 
-      // Optimistic: mostrar la dependencia de inmediato
       const tempId = `opt-dep-${Date.now()}`
       setDeps((prev) => [...prev, { id: tempId, predecesora: fromTaskId, sucesora: overBarId, tipo, lagMinutos: 0 }])
 
@@ -304,39 +335,41 @@ export function GanttView({
       return
     }
 
-    if (!dragState) return
-    const override = dragOverrides.get(dragState.taskId)
-    const taskId = dragState.taskId
+    // Fin drag — siempre leer de los refs, nunca del estado (puede ser stale)
+    const ds = dragStateRef.current
+    if (!ds) return
+    const override = dragOverridesRef.current.get(ds.taskId)
+
+    dragStateRef.current = null
+    dragOverridesRef.current = new Map()
     setDragState(null)
     setDragOverrides(new Map())
 
-    // Click sin movimiento → seleccionar tarea
+    // Sin movimiento → click para seleccionar
     if (!override) {
-      setSelectedTaskId((prev) => prev === taskId ? null : taskId)
+      setSelectedTaskId((prev) => prev === ds.taskId ? null : prev)
       return
     }
-    if (persisting) return
 
-    const newInicio = startOfDay(override.inicio)
-    const newFin = startOfDay(override.fin)
-    if (newInicio.getTime() === startOfDay(dragState.originalInicio).getTime() &&
-      newFin.getTime() === startOfDay(dragState.originalFin).getTime()) return
+    const newInicio = nearestDay(override.inicio)
+    const newFin = nearestDay(override.fin)
+    if (newInicio.getTime() === startOfDay(ds.originalInicio).getTime() &&
+      newFin.getTime() === startOfDay(ds.originalFin).getTime()) return
 
+    // Actualización optimista inmediata
     setTasks((prev) =>
       prev.map((t) =>
-        t.id === taskId ? { ...t, inicio: newInicio, fin: newFin } : t
+        t.id === ds.taskId ? { ...t, inicio: newInicio, fin: newFin } : t
       )
     )
 
-    setPersisting(true)
-    const res = await moverTarea(workflowId, taskId, newInicio, newFin)
-    setPersisting(false)
+    const res = await moverTarea(workflowId, ds.taskId, newInicio, newFin)
 
     if ("error" in res) {
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === taskId
-            ? { ...t, inicio: dragState.originalInicio, fin: dragState.originalFin }
+          t.id === ds.taskId
+            ? { ...t, inicio: ds.originalInicio, fin: ds.originalFin }
             : t
         )
       )
@@ -353,7 +386,7 @@ export function GanttView({
       })
     )
     router.refresh()
-  }, [depDraw, barByTaskId, workflowId, dragState, dragOverrides, persisting, router])
+  }, [barByTaskId, workflowId, router])
 
   // ── Baseline ──────────────────────────────────────────────────────────────────
 

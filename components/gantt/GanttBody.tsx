@@ -131,9 +131,11 @@ export function GanttBody({
   const resolvedBars = visibleBars.map((bar) => {
     const override = taskDates.get(bar.taskId)
     if (!override) return bar
-    const x = differenceInDays(startOfDay(override.inicio), startOfDay(timelineStart)) * pxPerDay
-    const x2 = differenceInDays(startOfDay(override.fin), startOfDay(timelineStart)) * pxPerDay
-    const w = Math.max(x2 - x, pxPerDay)  // mínimo 1 día visible
+    const tlStart = startOfDay(timelineStart).getTime()
+    const msPerDay = 86_400_000
+    const x = (override.inicio.getTime() - tlStart) / msPerDay * pxPerDay
+    const x2 = (override.fin.getTime() - tlStart) / msPerDay * pxPerDay
+    const w = Math.max(x2 - x, pxPerDay)
     return { ...bar, x, w }
   })
 
@@ -169,7 +171,7 @@ export function GanttBody({
       style={{ minWidth: totalW, cursor: isDepDrawing ? "crosshair" : draggingId ? "grabbing" : "default" }}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={isDepDrawing ? undefined : onPointerUp}
+      onPointerLeave={isDepDrawing ? onPointerUp : undefined}
     >
       <defs>
         <style>{`

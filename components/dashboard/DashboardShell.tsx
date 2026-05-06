@@ -39,17 +39,17 @@ export function DashboardShell({
   };
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full overflow-x-hidden">
       <DashboardSidebar user={sidebarUser} collapsed={collapsed} onToggle={toggle} />
       <div
         className={cn(
-          "flex flex-1 flex-col transition-[padding] duration-200 ease-in-out",
+          "flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-in-out",
           collapsed ? "md:pl-[72px]" : "md:pl-[260px]"
         )}
       >
         <DashboardHeader user={headerUser} />
         <HeartbeatTracker />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex min-w-0 flex-1 flex-col p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

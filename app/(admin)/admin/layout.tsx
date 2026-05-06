@@ -16,10 +16,10 @@ export default async function AdminLayout({
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full overflow-x-hidden">
       <AdminSidebar rol={user.rol} />
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-card/90 px-4 backdrop-blur-sm md:px-6">
           <div />
           <div className="flex items-center gap-3">
@@ -42,7 +42,7 @@ export default async function AdminLayout({
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6">
+        <main className="flex min-w-0 flex-1 flex-col p-4 md:p-6">
           {children}
         </main>
       </div>

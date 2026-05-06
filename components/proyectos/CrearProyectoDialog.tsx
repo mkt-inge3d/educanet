@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
 import { instanciarWorkflow } from "@/lib/admin/workflow-instancia-actions"
+import { crearWorkflowWebinarV2 } from "@/lib/admin/webinar-instancia-actions"
 import { SelectorNegocio } from "@/components/tareas/SelectorNegocio"
 import type { Negocio } from "@prisma/client"
 import { format } from "date-fns"
@@ -29,6 +30,8 @@ interface CrearProyectoDialogProps {
   currentUserId: string
 }
 
+type TipoProyecto = "ESTANDAR" | "WEBINAR"
+
 export function CrearProyectoDialog({ plantillas, usuarios, calendarios, currentUserId }: CrearProyectoDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -37,6 +40,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
   const [resultado, setResultado] = useState<{ tareasCreadas: number; tareasOmitidas: { codigo: string; motivo: string }[] } | null>(null)
   const [workflowCreado, setWorkflowCreado] = useState<string | null>(null)
 
+  const [tipoProyecto, setTipoProyecto] = useState<TipoProyecto>("ESTANDAR")
   const [plantillaId, setPlantillaId] = useState(plantillas[0]?.id ?? "")
   const [nombre, setNombre] = useState("")
   const [negocio, setNegocio] = useState<Negocio | null>(null)
@@ -45,10 +49,14 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
   const [calendarId, setCalendarId] = useState("")
   const [notas, setNotas] = useState("")
 
-  const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId)
+  const plantillaWebinar = plantillas.find((p) => p.categoria === "WEBINAR")
+  const plantillaSeleccionada = tipoProyecto === "WEBINAR"
+    ? plantillaWebinar
+    : plantillas.find((p) => p.id === plantillaId)
   const responsableSeleccionado = usuarios.find((u) => u.id === responsableId)
 
   function resetForm() {
+    setTipoProyecto("ESTANDAR")
     setPlantillaId(plantillas[0]?.id ?? "")
     setNombre("")
     setNegocio(null)
@@ -63,22 +71,41 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!plantillaId) { setError("Seleccioná una plantilla"); return }
+    if (tipoProyecto === "ESTANDAR" && !plantillaId) { setError("Seleccioná una plantilla"); return }
+    if (tipoProyecto === "WEBINAR" && !plantillaWebinar) { setError("No hay plantilla Webinar configurada en el sistema"); return }
     if (!responsableId) { setError("Seleccioná un responsable"); return }
     setError(null)
     setLoading(true)
 
     let res
     try {
-      res = await instanciarWorkflow({
-        plantillaId,
-        nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
-        negocio,
-        fechaHito: new Date(fechaHito),
-        responsableGeneralId: responsableId,
-        calendarId: calendarId || undefined,
-        notas: notas || undefined,
-      })
+      if (tipoProyecto === "WEBINAR") {
+        res = await crearWorkflowWebinarV2({
+          plantillaId: plantillaWebinar!.id,
+          nombre: nombre || `Webinar ${new Date(fechaHito).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}`,
+          fechaEvento: new Date(fechaHito),
+          responsableGeneralId: responsableId,
+          negocio,
+          calendarId: calendarId || undefined,
+          notas: notas || undefined,
+        })
+        if ("error" in res) { setError(res.error); setLoading(false); return }
+        setResultado({ tareasCreadas: res.tareasCreadas, tareasOmitidas: [] })
+        setWorkflowCreado(res.workflowInstanciaId)
+      } else {
+        res = await instanciarWorkflow({
+          plantillaId,
+          nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
+          negocio,
+          fechaHito: new Date(fechaHito),
+          responsableGeneralId: responsableId,
+          calendarId: calendarId || undefined,
+          notas: notas || undefined,
+        })
+        if ("error" in res) { setError(res.error as string); setLoading(false); return }
+        setResultado({ tareasCreadas: res.tareasCreadas, tareasOmitidas: res.tareasOmitidas })
+        setWorkflowCreado(res.workflowInstanciaId)
+      }
     } catch (err) {
       setLoading(false)
       setError(err instanceof Error ? err.message : "Error inesperado al crear el proyecto")
@@ -86,14 +113,6 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
     }
 
     setLoading(false)
-
-    if ("error" in res) {
-      setError(res.error as string)
-      return
-    }
-
-    setResultado({ tareasCreadas: res.tareasCreadas, tareasOmitidas: res.tareasOmitidas })
-    setWorkflowCreado(res.workflowInstanciaId)
     router.refresh()
   }
 
@@ -150,31 +169,53 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
         ) : (
           <>
             <form id="form-crear-proyecto" onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Tipo de proyecto */}
               <div className="space-y-1.5">
-                <Label>Plantilla</Label>
-                <Select value={plantillaId} onValueChange={(v) => setPlantillaId(v ?? "")}>
+                <Label>Tipo de proyecto</Label>
+                <Select value={tipoProyecto} onValueChange={(v) => setTipoProyecto(v as TipoProyecto)}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar plantilla…">
-                      {plantillaSeleccionada?.nombre ?? null}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {plantillas.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nombre}
-                        <span className="ml-2 text-xs text-muted-foreground">({p.categoria})</span>
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="ESTANDAR">Estándar</SelectItem>
+                    <SelectItem value="WEBINAR">Webinar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Plantilla (solo para tipo estándar) */}
+              {tipoProyecto === "ESTANDAR" && (
+                <div className="space-y-1.5">
+                  <Label>Plantilla</Label>
+                  <Select value={plantillaId} onValueChange={(v) => setPlantillaId(v ?? "")}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Seleccionar plantilla…">
+                        {plantillaSeleccionada?.nombre ?? null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plantillas.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.nombre}
+                          <span className="ml-2 text-xs text-muted-foreground">({p.categoria})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label>Nombre del proyecto</Label>
                 <Input
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  placeholder={plantillaSeleccionada?.nombre ?? "Nombre…"}
+                  placeholder={
+                    tipoProyecto === "WEBINAR"
+                      ? "Ej: Webinar Autodesk — Junio 2026"
+                      : (plantillaSeleccionada?.nombre ?? "Nombre…")
+                  }
                 />
               </div>
 
@@ -184,13 +225,24 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
               </div>
 
               <div className="space-y-1.5">
-                <Label>Fecha hito</Label>
+                <Label>
+                  {tipoProyecto === "WEBINAR" ? (
+                    <>Fecha del evento <span className="text-destructive">*</span></>
+                  ) : (
+                    "Fecha hito"
+                  )}
+                </Label>
                 <Input
                   type="date"
                   value={fechaHito}
                   onChange={(e) => setFechaHito(e.target.value)}
                   required
                 />
+                {tipoProyecto === "WEBINAR" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    El sistema generará automáticamente el Gantt con 67 tareas relativas a esta fecha.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -244,7 +296,11 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
               {error && <p className="text-sm text-destructive">{error}</p>}
             </form>
             <DialogFooter>
-              <Button form="form-crear-proyecto" type="submit" disabled={loading || !plantillaId}>
+              <Button
+                form="form-crear-proyecto"
+                type="submit"
+                disabled={loading || (tipoProyecto === "ESTANDAR" && !plantillaId)}
+              >
                 {loading ? "Creando…" : "Crear proyecto"}
               </Button>
             </DialogFooter>

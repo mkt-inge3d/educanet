@@ -1,12 +1,30 @@
 "use server"
 
-import { requireRole } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { rescheduleSuccessors, computeCriticalPath } from "./scheduler"
 import type { CalendarioGantt, HorarioSemanal } from "./types"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function requireWorkflowAccess(workflowId: string) {
+  const user = await requireAuth()
+  if (user.rol === "ADMIN" || user.rol === "RRHH") return user
+  const wf = await prisma.workflowInstancia.findFirst({
+    where: {
+      id: workflowId,
+      OR: [
+        { responsableGeneralId: user.id },
+        { tareas: { some: { asignadoAId: user.id } } },
+      ],
+    },
+    select: { id: true },
+  })
+  if (!wf) redirect("/unauthorized")
+  return user
+}
 
 function invalidarGantt(workflowId: string) {
   revalidatePath(`/admin/workflows/${workflowId}/gantt`)
@@ -85,7 +103,7 @@ export async function moverTarea(
   nuevoInicio: Date,
   nuevoFin: Date
 ) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
 
   const dur = Math.round((nuevoFin.getTime() - nuevoInicio.getTime()) / 60_000)
 
@@ -145,7 +163,7 @@ export async function crearTareaGantt(
     parentId?: string | null
   }
 ) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
 
   const dur = data.esHito
     ? 0
@@ -181,7 +199,7 @@ export async function crearTareaGantt(
 // ── Eliminar tarea ────────────────────────────────────────────────────────────
 
 export async function eliminarTareaGantt(workflowId: string, tareaId: string) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
   await prisma.tareaInstancia.delete({ where: { id: tareaId } })
   const cal = await obtenerCalendario(workflowId)
   await aplicarCPM(workflowId, cal)
@@ -198,7 +216,7 @@ export async function crearDependencia(
   tipo: "FIN_A_INICIO" | "FIN_A_FIN" | "INICIO_A_INICIO" | "INICIO_A_FIN" = "FIN_A_INICIO",
   lagMinutos = 0
 ) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
 
   // Detectar ciclo simple: el sucesor no puede ser antecesor transitivo del predecesor
   const existeDep = await prisma.dependenciaInstancia.findFirst({
@@ -219,7 +237,7 @@ export async function crearDependencia(
 }
 
 export async function eliminarDependencia(workflowId: string, depId: string) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireAuth()
   await prisma.dependenciaInstancia.delete({ where: { id: depId } })
   const cal = await obtenerCalendario(workflowId)
   await aplicarCPM(workflowId, cal)
@@ -233,7 +251,7 @@ export async function reordenarTareas(
   workflowId: string,
   orden: { id: string; ordenGantt: number }[]
 ) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
   await prisma.$transaction(
     orden.map(({ id, ordenGantt }) =>
       prisma.tareaInstancia.update({ where: { id }, data: { ordenGantt } })
@@ -246,7 +264,7 @@ export async function reordenarTareas(
 // ── Actualizar progreso ───────────────────────────────────────────────────────
 
 export async function actualizarProgreso(workflowId: string, tareaId: string, progreso: number) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
   if (progreso < 0 || progreso > 100) return { error: "Progreso debe ser 0-100" }
   await prisma.tareaInstancia.update({
     where: { id: tareaId },
@@ -259,7 +277,7 @@ export async function actualizarProgreso(workflowId: string, tareaId: string, pr
 // ── Baseline ──────────────────────────────────────────────────────────────────
 
 export async function guardarBaseline(workflowId: string) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
   const tareas = await prisma.tareaInstancia.findMany({
     where: { workflowInstanciaId: workflowId },
     select: { id: true, fechaEstimadaInicio: true, fechaEstimadaFin: true, duracionMinutos: true },
@@ -287,7 +305,7 @@ export async function guardarBaseline(workflowId: string) {
 }
 
 export async function limpiarBaseline(workflowId: string) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireWorkflowAccess(workflowId)
   const tareas = await prisma.tareaInstancia.findMany({
     where: { workflowInstanciaId: workflowId },
     select: { id: true },

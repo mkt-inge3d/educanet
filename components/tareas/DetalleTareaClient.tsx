@@ -54,6 +54,7 @@ import {
   reportarBloqueoExterno,
 } from "@/lib/tareas/actions";
 import { ChecklistItemRow } from "./ChecklistItemRow";
+import { SubtareasSection } from "./SubtareasSection";
 import { datosTarea } from "@/lib/tareas/tarea-datos";
 import {
   InlineDate,
@@ -87,6 +88,18 @@ type TareaDetalle = Prisma.TareaInstanciaGetPayload<{
     asignadoA: { select: { id: true; nombre: true; apellido: true; puesto: { select: { nombre: true } } } };
     ejecutadaRealmente: { select: { id: true; nombre: true; apellido: true } };
     checklistMarcados: true;
+    hijos: {
+      select: {
+        id: true;
+        nombreAdHoc: true;
+        catalogoTarea: { select: { nombre: true } };
+        estado: true;
+        progreso: true;
+        fechaEstimadaInicio: true;
+        fechaEstimadaFin: true;
+        asignadoA: { select: { id: true; nombre: true; apellido: true } };
+      };
+    };
   };
 }>;
 
@@ -347,6 +360,16 @@ export function DetalleTareaClient({
             onOcultarItem={onOcultarItem}
             modoLectura={modoLectura}
           />
+
+          {/* Subtareas (solo si la tarea tiene hijos o el usuario puede crear) */}
+          {(tarea.hijos.length > 0 || !modoLectura) && (
+            <SubtareasSection
+              parentId={tarea.id}
+              subtareas={tarea.hijos}
+              companeros={companeros}
+              modoLectura={modoLectura}
+            />
+          )}
         </div>
 
         <aside className="space-y-4">

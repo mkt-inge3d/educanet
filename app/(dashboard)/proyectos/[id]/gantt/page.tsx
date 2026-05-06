@@ -35,7 +35,7 @@ export default async function ProyectoGanttPage({
   if (!data) notFound()
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col overflow-hidden">
+    <div className="-m-4 flex flex-1 flex-col overflow-hidden md:-m-6">
       <GanttView
         workflowId={id}
         projectName={data.nombre}
