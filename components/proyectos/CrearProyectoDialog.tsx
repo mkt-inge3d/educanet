@@ -24,9 +24,10 @@ interface CrearProyectoDialogProps {
   plantillas: Plantilla[]
   usuarios: Usuario[]
   calendarios: Calendario[]
+  currentUserId: string
 }
 
-export function CrearProyectoDialog({ plantillas, usuarios, calendarios }: CrearProyectoDialogProps) {
+export function CrearProyectoDialog({ plantillas, usuarios, calendarios, currentUserId }: CrearProyectoDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -38,7 +39,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios }: Crear
   const [nombre, setNombre] = useState("")
   const [contextoMarca, setContextoMarca] = useState("")
   const [fechaHito, setFechaHito] = useState(format(new Date(), "yyyy-MM-dd"))
-  const [responsableId, setResponsableId] = useState(usuarios[0]?.id ?? "")
+  const [responsableId, setResponsableId] = useState(currentUserId || usuarios[0]?.id || "")
   const [calendarId, setCalendarId] = useState("")
   const [notas, setNotas] = useState("")
 

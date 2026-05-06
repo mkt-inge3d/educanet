@@ -81,6 +81,7 @@ export default async function ProyectosPage() {
             plantillas={plantillas}
             usuarios={usuarios}
             calendarios={calendarios}
+            currentUserId={user.id}
           />
         )}
       </div>
