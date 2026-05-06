@@ -46,6 +46,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
   const [notas, setNotas] = useState("")
 
   const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId)
+  const responsableSeleccionado = usuarios.find((u) => u.id === responsableId)
 
   function resetForm() {
     setPlantillaId(plantillas[0]?.id ?? "")
@@ -153,7 +154,9 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                 <Label>Plantilla</Label>
                 <Select value={plantillaId} onValueChange={(v) => setPlantillaId(v ?? "")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar plantilla…" />
+                    <SelectValue placeholder="Seleccionar plantilla…">
+                      {plantillaSeleccionada?.nombre ?? null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {plantillas.map((p) => (
@@ -194,7 +197,11 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                 <Label>Responsable general</Label>
                 <Select value={responsableId} onValueChange={(v) => setResponsableId(v ?? "")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar…" />
+                    <SelectValue placeholder="Seleccionar…">
+                      {responsableSeleccionado
+                        ? `${responsableSeleccionado.nombre} ${responsableSeleccionado.apellido}`
+                        : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {usuarios.map((u) => (
