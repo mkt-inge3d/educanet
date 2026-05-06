@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluarYOtorgarBonusEquipo } from "@/lib/piloto/bonus-equipo";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

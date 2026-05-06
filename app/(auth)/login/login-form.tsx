@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
+import { Suspense, useActionState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginAction } from "../actions";
+import { InputRedirect } from "./input-redirect";
 
-export function LoginForm({ redirectTo }: { redirectTo?: string }) {
+export function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, {});
   const [showPassword, setShowPassword] = useState(false);
 
@@ -25,9 +26,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
   return (
     <form action={formAction} className="space-y-4">
-      {redirectTo && (
-        <input type="hidden" name="redirectTo" value={redirectTo} />
-      )}
+      <Suspense>
+        <InputRedirect />
+      </Suspense>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}

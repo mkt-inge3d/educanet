@@ -26,7 +26,7 @@ export async function obtenerTareasUsuario(userId: string) {
       workflowInstancia: { select: { id: true, nombre: true, fechaHito: true, contextoMarca: true } },
       checklistMarcados: true,
     },
-    orderBy: { fechaEstimadaFin: "asc" },
+    orderBy: [{ fechaEstimadaFin: "asc" }, { createdAt: "asc" }],
   });
 }
 

@@ -93,7 +93,7 @@ export async function iniciarTarea(tareaId: string): Promise<Result> {
 
     await prisma.tareaInstancia.update({
       where: { id: tareaId },
-      data: { estado: "EN_PROGRESO", fechaInicioReal: new Date() },
+      data: { estado: "EN_PROGRESO", fechaInicioReal: new Date(), esCopia: false },
     });
     revalidatePath("/tareas");
     revalidatePath(`/tareas/${tareaId}`);
@@ -750,8 +750,6 @@ export async function agregarItemChecklistAdHoc(input: {
     if (!tarea) return { success: false, error: "Tarea no encontrada" };
     if (tarea.asignadoAId !== user.id)
       return { success: false, error: "Sin permiso" };
-    if (tarea.catalogoTareaId)
-      return { success: false, error: "Solo en tareas ad-hoc" };
     if (tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA")
       return { success: false, error: "La tarea ya está cerrada" };
 
@@ -1031,6 +1029,7 @@ export async function editarTareaInstancia(input: {
       }
     }
 
+    data.esCopia = false;
     await prisma.tareaInstancia.update({
       where: { id: input.tareaId },
       data,
@@ -1089,8 +1088,101 @@ export async function eliminarTareaInstancia(
 
   await prisma.tareaInstancia.delete({ where: { id: tareaId } });
 
+  revalidatePath("/tareas");
   revalidatePath("/mi-progreso");
   revalidatePath("/mi-equipo");
   revalidatePath(`/tareas/${tareaId}`);
   return { success: true };
+}
+
+export async function ocultarChecklistItemPlantilla(input: {
+  tareaId: string;
+  itemPlantillaId: string;
+}): Promise<Result> {
+  const user = await requireAuth();
+
+  const tarea = await prisma.tareaInstancia.findUnique({
+    where: { id: input.tareaId },
+    select: { asignadoAId: true, checklistOcultosPlantilla: true, estado: true },
+  });
+  if (!tarea) return { success: false, error: "Tarea no encontrada" };
+  if (tarea.asignadoAId !== user.id) return { success: false, error: "Sin permiso" };
+  if (tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA")
+    return { success: false, error: "La tarea ya está cerrada" };
+
+  const ocultos = (tarea.checklistOcultosPlantilla as string[] | null) ?? [];
+  if (!ocultos.includes(input.itemPlantillaId)) {
+    await prisma.tareaInstancia.update({
+      where: { id: input.tareaId },
+      data: { checklistOcultosPlantilla: [...ocultos, input.itemPlantillaId] },
+    });
+  }
+
+  revalidatePath(`/tareas/${input.tareaId}`);
+  return { success: true };
+}
+
+export async function duplicarTareaInstancia(
+  tareaId: string,
+): Promise<Result<{ id: string }>> {
+  const user = await requireAuth();
+
+  const original = await prisma.tareaInstancia.findUnique({
+    where: { id: tareaId },
+    select: {
+      catalogoTareaId: true,
+      asignadoAId: true,
+      workflowInstanciaId: true,
+      nombreAdHoc: true,
+      descripcionAdHoc: true,
+      negocio: true,
+      origen: true,
+      fechaEstimadaInicio: true,
+      fechaEstimadaFin: true,
+      tiempoEstimadoMinAdHoc: true,
+      tiempoEstimadoMaxAdHoc: true,
+      puntosBaseAdHoc: true,
+      requiereValidacionJefe: true,
+      checklistAdHoc: true,
+    },
+  });
+  if (!original) return { success: false, error: "Tarea no encontrada" };
+
+  const esAdmin = user.rol === "ADMIN" || user.rol === "RRHH";
+  const esElEmpleado = original.asignadoAId === user.id;
+  const esJefe = user.puesto?.nombre?.startsWith("Jefe") ?? false;
+  if (!esAdmin && !esElEmpleado && !esJefe) {
+    return { success: false, error: "Sin permiso" };
+  }
+
+  type AdHocItem = { texto: string; marcado: boolean };
+  const checklistOriginal = original.checklistAdHoc as AdHocItem[] | null;
+  const checklistCopia = checklistOriginal?.map((i) => ({ texto: i.texto, marcado: false }));
+
+  const duplicada = await prisma.tareaInstancia.create({
+    data: {
+      catalogoTareaId: original.catalogoTareaId,
+      asignadoAId: original.asignadoAId,
+      workflowInstanciaId: original.workflowInstanciaId,
+      nombreAdHoc: original.nombreAdHoc ? `${original.nombreAdHoc} (copia)` : null,
+      descripcionAdHoc: original.descripcionAdHoc,
+      negocio: original.negocio,
+      origen: original.origen,
+      fechaEstimadaInicio: original.fechaEstimadaInicio,
+      fechaEstimadaFin: original.fechaEstimadaFin,
+      tiempoEstimadoMinAdHoc: original.tiempoEstimadoMinAdHoc,
+      tiempoEstimadoMaxAdHoc: original.tiempoEstimadoMaxAdHoc,
+      puntosBaseAdHoc: original.puntosBaseAdHoc,
+      requiereValidacionJefe: original.requiereValidacionJefe,
+      ...(checklistCopia !== undefined && { checklistAdHoc: checklistCopia }),
+      estado: "PENDIENTE",
+      esCopia: true,
+      duplicadaDe: tareaId,
+    },
+    select: { id: true },
+  });
+
+  revalidatePath("/tareas");
+  revalidatePath("/mi-progreso");
+  return { success: true, data: { id: duplicada.id } };
 }

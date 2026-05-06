@@ -28,6 +28,10 @@ export function puedeVerAnaliticas(rol: RolUsuario): boolean {
   return rol === "ADMIN" || rol === "RRHH";
 }
 
+export function puedeGestionarCalendarios(rol: RolUsuario): boolean {
+  return rol === "ADMIN";
+}
+
 export type SeccionAdmin = {
   label: string;
   href: string;

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { EstadoTareaInstancia } from "@prisma/client";
 
 import { TareaCard, type TareaCardProps } from "./TareaCard";
+import { duplicarTareaInstancia, eliminarTareaInstancia } from "@/lib/tareas/actions";
 
 type TareaEnKanban = TareaCardProps["tarea"];
 
@@ -11,6 +14,28 @@ type KanbanProps = {
   tareas: TareaEnKanban[];
   userId: string;
 };
+
+function sortarConCopias(tasks: TareaEnKanban[]): TareaEnKanban[] {
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const result: TareaEnKanban[] = [];
+  const inserted = new Set<string>();
+
+  function insertWithChildren(task: TareaEnKanban) {
+    if (inserted.has(task.id)) return;
+    result.push(task);
+    inserted.add(task.id);
+    for (const t of tasks) {
+      if (t.duplicadaDe === task.id) insertWithChildren(t);
+    }
+  }
+
+  for (const task of tasks) {
+    if (!task.duplicadaDe || !byId.has(task.duplicadaDe)) {
+      insertWithChildren(task);
+    }
+  }
+  return result;
+}
 
 const COLUMNAS: Array<{
   estado: EstadoTareaInstancia;
@@ -45,9 +70,23 @@ const COLUMNAS: Array<{
 ];
 
 export function KanbanTareas({ tareas, userId }: KanbanProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  type OptimisticAction =
+    | { type: "duplicar"; tarea: TareaEnKanban }
+    | { type: "eliminar"; id: string };
+
+  const [optimisticTareas, dispatch] = useOptimistic(
+    tareas,
+    (state: TareaEnKanban[], action: OptimisticAction) => {
+      if (action.type === "duplicar") return [...state, action.tarea];
+      if (action.type === "eliminar") return state.filter((t) => t.id !== action.id);
+      return state;
+    },
+  );
+
   const [expandedCol, setExpandedCol] = useState<EstadoTareaInstancia | null>(null);
 
-  // Refs para evitar closures estales — el listener se registra UNA sola vez
   const expandedColRef = useRef<EstadoTareaInstancia | null>(null);
   expandedColRef.current = expandedCol;
 
@@ -64,13 +103,69 @@ export function KanbanTareas({ tareas, userId }: KanbanProps) {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);                          // sin dependencias — registrado una vez, lee refs dinámicamente
+  }, []);
+
+  const duplicarConOptimismo = (original: TareaEnKanban) => {
+    type AdHocItem = { texto: string; marcado: boolean };
+    const adHocOriginal = original.checklistAdHoc as AdHocItem[] | null;
+
+    const copia: TareaEnKanban = {
+      ...original,
+      id: `optimistic-${Date.now()}`,
+      estado: "PENDIENTE",
+      esCopia: true,
+      duplicadaDe: original.id,
+      checklistMarcados: [],
+      checklistAdHoc: adHocOriginal?.map((i) => ({ texto: i.texto, marcado: false })) ?? null,
+      fechaInicioReal: null,
+      fechaFinReal: null,
+      tiempoInvertidoMin: null,
+      puntosOtorgados: 0,
+      puntosBrutos: 0,
+      puntosATiempo: false,
+      puntosDesbloqueo: false,
+      factorProrrateo: 1.0,
+      bloqueoExternoMotivo: null,
+      bloqueoExternoResponsable: null,
+      bloqueoExternoDesde: null,
+      ejecutadaPorOtro: false,
+      ejecutadaRealmenteId: null,
+      notasEjecutor: null,
+      calidadAutoeval: null,
+      motivoAyuda: null,
+    };
+
+    startTransition(async () => {
+      dispatch({ type: "duplicar", tarea: copia });
+      const res = await duplicarTareaInstancia(original.id);
+      if (!res.success) {
+        toast.error(res.error ?? "Error al duplicar");
+      } else {
+        toast.success("Tarea duplicada");
+        router.refresh();
+      }
+    });
+  };
+
+  const eliminarConOptimismo = (id: string) => {
+    startTransition(async () => {
+      dispatch({ type: "eliminar", id });
+      const res = await eliminarTareaInstancia(id);
+      if (!res.success) {
+        toast.error(res.error ?? "Error al eliminar");
+        router.refresh();
+      }
+    });
+  };
 
   const porEstado = new Map<EstadoTareaInstancia, TareaEnKanban[]>();
-  for (const t of tareas) {
+  for (const t of optimisticTareas) {
     const arr = porEstado.get(t.estado) ?? [];
     arr.push(t);
     porEstado.set(t.estado, arr);
+  }
+  for (const [estado, items] of porEstado) {
+    porEstado.set(estado, sortarConCopias(items));
   }
 
   const gridStyle = {
@@ -110,6 +205,8 @@ export function KanbanTareas({ tareas, userId }: KanbanProps) {
                     key={t.id}
                     tarea={t}
                     userId={userId}
+                    onDuplicarTarea={() => duplicarConOptimismo(t)}
+                    onEliminarTarea={() => eliminarConOptimismo(t.id)}
                     onExpandChange={(expanded) =>
                       setExpandedCol(expanded ? col.estado : null)
                     }

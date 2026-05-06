@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, BookOpen, CheckCircle, Award, Sparkles, Activity } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
+import { TiempoRelativo } from "@/components/ui/TiempoRelativo";
 
 export const metadata = { title: "Admin - Dashboard" };
 
@@ -87,7 +86,7 @@ export default async function AdminDashboardPage() {
                 <div className="text-right">
                   <Badge variant="outline" className="text-xs">{u.rol}</Badge>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatDistanceToNow(new Date(u.createdAt), { addSuffix: true, locale: es })}
+                    <TiempoRelativo fecha={u.createdAt} />
                   </p>
                 </div>
               </Link>

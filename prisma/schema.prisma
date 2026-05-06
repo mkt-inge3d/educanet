@@ -1002,6 +1002,19 @@ enum TipoDependencia {
   FIN_A_INICIO
   FIN_A_FIN
   INICIO_A_INICIO
+  INICIO_A_FIN
+}
+
+enum ModoReprogramacion {
+  AUTO
+  MANUAL
+  OFF
+}
+
+enum TipoFeriado {
+  NACIONAL
+  EMPRESA
+  EQUIPO
 }
 
 enum CategoriaWorkflow {
@@ -1134,19 +1147,24 @@ model TareaEnWorkflow {
 }
 
 model WorkflowInstancia {
-  id                   String         @id @default(cuid())
+  id                   String             @id @default(cuid())
   plantillaId          String
   nombre               String
   contextoMarca        String?
   fechaHito            DateTime
-  estadoGeneral        EstadoWorkflow @default(ACTIVO)
+  estadoGeneral        EstadoWorkflow     @default(ACTIVO)
   responsableGeneralId String
-  notas                String?        @db.Text
-  createdAt            DateTime       @default(now())
-  actualizadoEn        DateTime       @updatedAt
+  notas                String?            @db.Text
+  // Gantt
+  calendarId           String?
+  baselineGuardadoEn   DateTime?
+  modoReprogramacion   ModoReprogramacion @default(AUTO)
+  createdAt            DateTime           @default(now())
+  actualizadoEn        DateTime           @updatedAt
 
-  plantilla          WorkflowPlantilla @relation(fields: [plantillaId], references: [id], onDelete: Restrict)
-  responsableGeneral User              @relation("WorkflowsResponsable", fields: [responsableGeneralId], references: [id], onDelete: Restrict)
+  plantilla          WorkflowPlantilla  @relation(fields: [plantillaId], references: [id], onDelete: Restrict)
+  responsableGeneral User               @relation("WorkflowsResponsable", fields: [responsableGeneralId], references: [id], onDelete: Restrict)
+  calendario         CalendarioLaboral? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
   tareas             TareaInstancia[]
 
   @@index([fechaHito, estadoGeneral])
@@ -1191,6 +1209,13 @@ model TareaInstancia {
   // Checklist libre para tareas ad-hoc — Array<{ texto: string; marcado: boolean }>
   checklistAdHoc Json?
 
+  // IDs de ítems de plantilla eliminados en esta instancia — String[]
+  checklistOcultosPlantilla Json?
+
+  // Marca visual: la tarea fue recién duplicada y necesita revisión
+  esCopia    Boolean @default(false)
+  duplicadaDe String?
+
   // Validación del jefe (para ad-hoc del empleado)
   requiereValidacionJefe Boolean   @default(false)
   validadaPorJefeId      String?
@@ -1204,20 +1229,86 @@ model TareaInstancia {
   puntosDesbloqueo Boolean @default(false)
   factorProrrateo  Float   @default(1.0)
 
+  // Gantt — planificación
+  duracionMinutos    Int?
+  progreso           Int      @default(0)
+  esHito             Boolean  @default(false)
+  ordenGantt         Int      @default(0)
+  parentId           String?
+  baselineInicio     DateTime?
+  baselineFin        DateTime?
+  baselineDuracion   Int?
+  estaEnRutaCritica  Boolean  @default(false)
+  version            Int      @default(1)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  workflowInstancia  WorkflowInstancia?     @relation(fields: [workflowInstanciaId], references: [id], onDelete: Cascade)
-  catalogoTarea      CatalogoTarea?         @relation(fields: [catalogoTareaId], references: [id], onDelete: Restrict)
-  asignadoA          User                   @relation("TareasAsignadas", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  ejecutadaRealmente User?                  @relation("TareasEjecutadasPorAyuda", fields: [ejecutadaRealmenteId], references: [id], onDelete: SetNull)
-  validadaPorJefe    User?                  @relation("TareasValidadas", fields: [validadaPorJefeId], references: [id], onDelete: SetNull)
-  checklistMarcados  ChecklistItemMarcado[]
+  workflowInstancia     WorkflowInstancia?     @relation(fields: [workflowInstanciaId], references: [id], onDelete: Cascade)
+  catalogoTarea         CatalogoTarea?         @relation(fields: [catalogoTareaId], references: [id], onDelete: Restrict)
+  asignadoA             User                   @relation("TareasAsignadas", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  ejecutadaRealmente    User?                  @relation("TareasEjecutadasPorAyuda", fields: [ejecutadaRealmenteId], references: [id], onDelete: SetNull)
+  validadaPorJefe       User?                  @relation("TareasValidadas", fields: [validadaPorJefeId], references: [id], onDelete: SetNull)
+  checklistMarcados     ChecklistItemMarcado[]
+  parent                TareaInstancia?        @relation("Subtareas", fields: [parentId], references: [id], onDelete: SetNull)
+  hijos                 TareaInstancia[]       @relation("Subtareas")
+  dependenciasComoPrece DependenciaInstancia[] @relation("DepsComoPrece")
+  dependenciasComoSuces DependenciaInstancia[] @relation("DepsComoSuces")
 
   @@index([asignadoAId, estado])
   @@index([workflowInstanciaId, estado])
   @@index([fechaEstimadaFin, estado])
   @@index([asignadoAId, origen, requiereValidacionJefe])
+  @@index([workflowInstanciaId, ordenGantt])
+  @@index([parentId])
+  @@index([fechaEstimadaInicio])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Gantt — calendarios laborables, feriados y dependencias de instancia
+// ═══════════════════════════════════════════════════════════════════
+
+model CalendarioLaboral {
+  id        String   @id @default(cuid())
+  nombre    String
+  timezone  String   // IANA, ej: "America/Lima"
+  // HorarioSemanal: { lun: [{inicio,fin}], mar: [...], ... }
+  horario   Json
+  esDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  feriados  Feriado[]
+  proyectos WorkflowInstancia[]
+}
+
+model Feriado {
+  id         String            @id @default(cuid())
+  calendarId String
+  fecha      DateTime          @db.Date
+  nombre     String
+  recurrente Boolean           @default(false)
+  tipo       TipoFeriado       @default(NACIONAL)
+
+  calendario CalendarioLaboral @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId])
+  @@index([fecha])
+}
+
+model DependenciaInstancia {
+  id          String          @id @default(cuid())
+  predecesora String
+  sucesora    String
+  tipo        TipoDependencia @default(FIN_A_INICIO)
+  lagMinutos  Int             @default(0)
+
+  tareaPrece TareaInstancia @relation("DepsComoPrece", fields: [predecesora], references: [id], onDelete: Cascade)
+  tareaSuces TareaInstancia @relation("DepsComoSuces", fields: [sucesora], references: [id], onDelete: Cascade)
+
+  @@unique([predecesora, sucesora])
+  @@index([predecesora])
+  @@index([sucesora])
 }
 
 model ChecklistItemMarcado {

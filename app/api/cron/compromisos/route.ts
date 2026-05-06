@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { procesarEvento } from "@/lib/gamificacion/motor";
 
-export const dynamic = "force-dynamic";
-
 const PUNTOS_A_TIEMPO_AUTO = 20;
 const PUNTOS_CON_RETRASO = 10;
 

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BarChart2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +8,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { InstanciarWorkflowDialog } from "@/components/admin/InstanciarWorkflowDialog";
 
 export const metadata = { title: "Admin · Workflows" };
 
@@ -38,6 +41,18 @@ export default async function AdminWorkflowsPage() {
 
   const [plantillas, instancias] = await obtenerDatosWorkflows();
 
+  const [usuarios, calendarios] = await Promise.all([
+    prisma.user.findMany({
+      select: { id: true, nombre: true, apellido: true },
+      where: { activo: true },
+      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+    }),
+    prisma.calendarioLaboral.findMany({
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+  ]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -59,7 +74,7 @@ export default async function AdminWorkflowsPage() {
                   {p.codigo}
                 </code>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {p.descripcion}
                 </p>
@@ -71,6 +86,14 @@ export default async function AdminWorkflowsPage() {
                     {p._count.instancias} instancias
                   </Badge>
                 </div>
+                {p.activo && (
+                  <InstanciarWorkflowDialog
+                    plantillaId={p.id}
+                    plantillaNombre={p.nombre}
+                    usuarios={usuarios}
+                    calendarios={calendarios}
+                  />
+                )}
               </CardContent>
             </Card>
           ))}
@@ -97,6 +120,7 @@ export default async function AdminWorkflowsPage() {
                     <th className="p-3 text-right">Fecha hito</th>
                     <th className="p-3 text-left">Estado</th>
                     <th className="p-3 text-left">Progreso</th>
+                    <th className="p-3 text-right">Gantt</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,6 +161,17 @@ export default async function AdminWorkflowsPage() {
                               {completadas}/{w.tareas.length}
                             </span>
                           </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            render={<Link href={`/admin/workflows/${w.id}/gantt`} />}
+                          >
+                            <BarChart2 className="mr-1 h-3.5 w-3.5" />
+                            Gantt
+                          </Button>
                         </td>
                       </tr>
                     );

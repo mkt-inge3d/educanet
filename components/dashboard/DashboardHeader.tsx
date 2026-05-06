@@ -14,6 +14,7 @@ type HeaderUser = {
   nombre: string;
   apellido: string;
   email: string;
+  rol?: string;
   puntosTotales: number;
   rachaActual: number;
   puesto?: { nombre: string } | null;
@@ -32,7 +33,7 @@ export function DashboardHeader({ user }: { user: HeaderUser }) {
           }
         />
         <SheetContent side="left" className="w-72 p-0">
-          <DashboardSidebarMobile user={user} />
+          <DashboardSidebarMobile user={{ nombre: user.nombre, apellido: user.apellido, rol: user.rol, puesto: user.puesto }} />
         </SheetContent>
       </Sheet>
 

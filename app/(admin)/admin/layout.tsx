@@ -1,8 +1,8 @@
+import { cookies } from "next/headers";
 import { requireRole } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { logoutAction } from "../../(dashboard)/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -11,6 +11,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await cookies();
   const user = await requireRole(["ADMIN", "RRHH"]);
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
 
@@ -33,7 +34,7 @@ export default async function AdminLayout({
               </Avatar>
               <span className="hidden text-sm sm:inline">{user.nombre}</span>
             </div>
-            <form action={logoutAction}>
+            <form action="/api/auth/logout" method="POST">
               <Button variant="ghost" size="icon-sm" type="submit" aria-label="Cerrar sesion">
                 <LogOut className="h-4 w-4" />
               </Button>

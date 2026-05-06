@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
+import { TiempoRelativo } from "@/components/ui/TiempoRelativo";
 
 export const metadata = { title: "Admin - Usuarios" };
 
@@ -97,7 +96,7 @@ export default async function AdminUsuariosPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {u.ultimaActividad
-                        ? formatDistanceToNow(new Date(u.ultimaActividad), { addSuffix: true, locale: es })
+                        ? <TiempoRelativo fecha={u.ultimaActividad} />
                         : "Sin actividad"}
                     </td>
                     <td className="px-4 py-3 text-center">

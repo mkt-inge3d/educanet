@@ -7,8 +7,6 @@ import { cn } from "@/lib/utils";
 import { BotonAsignarKpis } from "./BotonAsignarKpis";
 import type { PuestoConDiagnostico, WorkflowConDiagnostico } from "@/lib/admin/cobertura-puestos";
 
-export const dynamic = "force-dynamic";
-
 export default async function PaginaCoberturaPuestos() {
   const diagnostico = await obtenerDiagnosticoCompleto();
 

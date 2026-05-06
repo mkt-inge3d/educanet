@@ -50,6 +50,7 @@ import {
   iniciarTarea,
   marcarChecklistAdHocItem,
   marcarChecklistItem,
+  ocultarChecklistItemPlantilla,
   reportarBloqueoExterno,
 } from "@/lib/tareas/actions";
 import { ChecklistItemRow } from "./ChecklistItemRow";
@@ -110,9 +111,14 @@ export function DetalleTareaClient({
 
   const cat = tarea.catalogoTarea;
   const datos = datosTarea(tarea);
+  const [localOcultosPlantilla, setLocalOcultosPlantilla] = useState(
+    () => new Set((tarea.checklistOcultosPlantilla as string[] | null) ?? [])
+  );
   const itemsOrdenados = useMemo(
-    () => (cat?.checklistItems ? [...cat.checklistItems].sort((a, b) => a.orden - b.orden) : []),
-    [cat],
+    () => (cat?.checklistItems
+      ? [...cat.checklistItems].sort((a, b) => a.orden - b.orden).filter(i => !localOcultosPlantilla.has(i.id))
+      : []),
+    [cat, localOcultosPlantilla],
   );
   const [localMarcados, setLocalMarcados] = useState<Map<string, boolean>>(() => {
     const m = new Map<string, boolean>();
@@ -171,6 +177,16 @@ export function DetalleTareaClient({
       else {
         toast.success("Tarea desbloqueada");
         router.refresh();
+      }
+    });
+  };
+
+  const onOcultarItem = (itemId: string) => {
+    setLocalOcultosPlantilla(prev => new Set([...prev, itemId]));
+    void ocultarChecklistItemPlantilla({ tareaId: tarea.id, itemPlantillaId: itemId }).then(res => {
+      if (!res.success) {
+        setLocalOcultosPlantilla(prev => { const next = new Set(prev); next.delete(itemId); return next; });
+        toast.error(res.error ?? "Error al eliminar");
       }
     });
   };
@@ -322,50 +338,15 @@ export function DetalleTareaClient({
             </div>
           )}
 
-          {itemsOrdenados.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">Checklist</CardTitle>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {itemsCompletados}/{itemsOrdenados.length} completados
-              </span>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Progress value={progreso} />
-              <ul className="space-y-2">
-                {itemsOrdenados.map((item, idx) => {
-                  const disabled =
-                    modoLectura || tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA";
-                  return (
-                    <li key={item.id} className="rounded-lg border p-3">
-                      <ChecklistItemRow
-                        itemPlantillaId={item.id}
-                        indice={idx + 1}
-                        descripcionOriginal={item.descripcion}
-                        descripcionOverride={overridesMap.get(item.id) ?? null}
-                        ayudaContextual={item.ayudaContextual}
-                        obligatorio={item.obligatorio}
-                        marcado={localMarcados.get(item.id) ?? false}
-                        disabled={disabled}
-                        onToggle={(nuevo) => onToggle(item.id, nuevo)}
-                        onEditarTexto={(nuevo) =>
-                          editarChecklistItemTexto({
-                            tareaId: tarea.id,
-                            itemPlantillaId: item.id,
-                            descripcion: nuevo,
-                          })
-                        }
-                        size="md"
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            </CardContent>
-          </Card>
-          )}
-
-          {!modoLectura && <ChecklistAdHoc tarea={tarea} />}
+          <ChecklistCompleto
+            tarea={tarea}
+            itemsOrdenados={itemsOrdenados}
+            localMarcados={localMarcados}
+            overridesMap={overridesMap}
+            onToggle={onToggle}
+            onOcultarItem={onOcultarItem}
+            modoLectura={modoLectura}
+          />
         </div>
 
         <aside className="space-y-4">
@@ -503,7 +484,7 @@ export function DetalleTareaClient({
               {tarea.estado !== "COMPLETADA" && tarea.estado !== "BLOQUEADA" && tarea.estado !== "OMITIDA" && (
                 <ModalBloqueo tareaId={tarea.id} />
               )}
-              <ModalEliminarTarea tareaId={tarea.id} />
+              <BtnEliminarTarea tareaId={tarea.id} />
             </div>
           )}
 
@@ -533,58 +514,23 @@ export function DetalleTareaClient({
   );
 }
 
-function ModalEliminarTarea({ tareaId }: { tareaId: string }) {
+function BtnEliminarTarea({ tareaId }: { tareaId: string }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
-  const onConfirmar = () => {
-    startTransition(async () => {
-      const res = await eliminarTareaInstancia(tareaId);
-      if (!res.success) {
-        toast.error(res.error ?? "Error al eliminar");
-        setOpen(false);
-        return;
-      }
-      toast.success("Tarea eliminada");
-      router.back();
-    });
+  const onEliminar = () => {
+    router.push("/tareas");
+    void eliminarTareaInstancia(tareaId);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 />
-            Eliminar tarea
-          </Button>
-        }
-      />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>¿Eliminar esta tarea?</DialogTitle>
-          <DialogDescription>
-            Se eliminará permanentemente junto con su checklist y progreso. Esta acción no se puede deshacer.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={onConfirmar}
-            disabled={isPending}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {isPending ? "Eliminando…" : "Sí, eliminar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <Button
+      variant="ghost"
+      className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+      onClick={onEliminar}
+    >
+      <Trash2 />
+      Eliminar tarea
+    </Button>
   );
 }
 
@@ -675,58 +621,80 @@ function ModalBloqueo({ tareaId }: { tareaId: string }) {
   );
 }
 
-function ChecklistAdHoc({ tarea }: { tarea: TareaDetalle }) {
+function ChecklistCompleto({
+  tarea,
+  itemsOrdenados,
+  localMarcados,
+  overridesMap,
+  onToggle,
+  onOcultarItem,
+  modoLectura,
+}: {
+  tarea: TareaDetalle;
+  itemsOrdenados: NonNullable<TareaDetalle["catalogoTarea"]>["checklistItems"];
+  localMarcados: Map<string, boolean>;
+  overridesMap: Map<string, string | null>;
+  onToggle: (itemId: string, nuevo: boolean) => void;
+  onOcultarItem: (itemId: string) => void;
+  modoLectura: boolean;
+}) {
   const router = useRouter();
-  const [nuevoTexto, setNuevoTexto] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [localItems, setLocalItems] = useState<ChecklistAdHocItem[]>(
     (tarea.checklistAdHoc as ChecklistAdHocItem[] | null) ?? []
   );
+  const [agregando, setAgregando] = useState(false);
+  const [nuevoTexto, setNuevoTexto] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  // Solo aplica a tareas ad-hoc
-  if (tarea.catalogoTareaId) return null;
 
   const cerrada = tarea.estado === "COMPLETADA" || tarea.estado === "OMITIDA";
 
-  const marcados = localItems.filter((i) => i.marcado).length;
-  const progreso = localItems.length > 0 ? Math.round((marcados / localItems.length) * 100) : 0;
+  const totalCatalogo = itemsOrdenados.length;
+  const totalAdHoc = localItems.length;
+  const totalItems = totalCatalogo + totalAdHoc;
 
-  const toggle = (indice: number, marcado: boolean) => {
-    // Optimistic: update immediately, sync server in background — no router.refresh()
-    setLocalItems(prev => prev.map((item, i) => i === indice ? { ...item, marcado } : item));
-    void marcarChecklistAdHocItem({ tareaId: tarea.id, indice, marcado }).then(res => {
+  const marcadosCatalogo = itemsOrdenados.filter((i) => localMarcados.get(i.id)).length;
+  const marcadosAdHoc = localItems.filter((i) => i.marcado).length;
+  const totalCompletados = marcadosCatalogo + marcadosAdHoc;
+  const progreso = totalItems > 0 ? Math.round((totalCompletados / totalItems) * 100) : 0;
+
+  if (modoLectura && totalItems === 0) return null;
+  if (cerrada && totalItems === 0) return null;
+
+  const toggleAdHoc = (indice: number, marcado: boolean) => {
+    setLocalItems((prev) => prev.map((item, i) => (i === indice ? { ...item, marcado } : item)));
+    void marcarChecklistAdHocItem({ tareaId: tarea.id, indice, marcado }).then((res) => {
       if (!res.success) {
-        setLocalItems(prev => prev.map((item, i) => i === indice ? { ...item, marcado: !marcado } : item));
+        setLocalItems((prev) => prev.map((item, i) => (i === indice ? { ...item, marcado: !marcado } : item)));
         toast.error(res.error ?? "Error");
+      }
+    });
+  };
+
+  const eliminarAdHoc = (indice: number) => {
+    const removed = localItems[indice];
+    setLocalItems((prev) => prev.filter((_, i) => i !== indice));
+    startTransition(async () => {
+      const res = await eliminarItemChecklistAdHoc({ tareaId: tarea.id, indice });
+      if (!res.success) {
+        setLocalItems((prev) => [...prev.slice(0, indice), removed, ...prev.slice(indice)]);
+        toast.error(res.error ?? "Error");
+      } else {
+        router.refresh();
       }
     });
   };
 
   const agregar = () => {
     const texto = nuevoTexto.trim();
-    if (!texto) return;
     setNuevoTexto("");
-    setLocalItems(prev => [...prev, { texto, marcado: false }]);
+    setAgregando(false);
+    if (!texto) return;
+    setLocalItems((prev) => [...prev, { texto, marcado: false }]);
     startTransition(async () => {
       const res = await agregarItemChecklistAdHoc({ tareaId: tarea.id, texto });
       if (!res.success) {
-        setLocalItems(prev => prev.slice(0, -1));
-        toast.error(res.error ?? "Error");
-      } else {
-        router.refresh();
-        inputRef.current?.focus();
-      }
-    });
-  };
-
-  const eliminar = (indice: number) => {
-    const removed = localItems[indice];
-    setLocalItems(prev => prev.filter((_, i) => i !== indice));
-    startTransition(async () => {
-      const res = await eliminarItemChecklistAdHoc({ tareaId: tarea.id, indice });
-      if (!res.success) {
-        setLocalItems(prev => [...prev.slice(0, indice), removed, ...prev.slice(indice)]);
+        setLocalItems((prev) => prev.slice(0, -1));
         toast.error(res.error ?? "Error");
       } else {
         router.refresh();
@@ -738,23 +706,64 @@ function ChecklistAdHoc({ tarea }: { tarea: TareaDetalle }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-base">Checklist</CardTitle>
-        {localItems.length > 0 && (
+        {totalItems > 0 && (
           <span className="text-xs tabular-nums text-muted-foreground">
-            {marcados}/{localItems.length} completados
+            {totalCompletados}/{totalItems} completados
           </span>
         )}
       </CardHeader>
       <CardContent className="space-y-3">
-        {localItems.length > 0 && <Progress value={progreso} />}
+        {totalItems > 0 && <Progress value={progreso} />}
 
-        {localItems.length > 0 && (
+        {totalItems > 0 && (
           <ul className="space-y-2">
+            {/* Ítems de plantilla */}
+            {itemsOrdenados.map((item, idx) => {
+              const disabled = modoLectura || cerrada;
+              return (
+                <li key={item.id} className="group flex items-start gap-2 rounded-lg border p-3">
+                  <div className="flex-1 min-w-0">
+                    <ChecklistItemRow
+                      itemPlantillaId={item.id}
+                      indice={idx + 1}
+                      descripcionOriginal={item.descripcion}
+                      descripcionOverride={overridesMap.get(item.id) ?? null}
+                      ayudaContextual={item.ayudaContextual}
+                      obligatorio={item.obligatorio}
+                      marcado={localMarcados.get(item.id) ?? false}
+                      disabled={disabled}
+                      onToggle={(nuevo) => onToggle(item.id, nuevo)}
+                      onEditarTexto={(nuevo) =>
+                        editarChecklistItemTexto({
+                          tareaId: tarea.id,
+                          itemPlantillaId: item.id,
+                          descripcion: nuevo,
+                        })
+                      }
+                      size="md"
+                    />
+                  </div>
+                  {!cerrada && !modoLectura && (
+                    <button
+                      type="button"
+                      onClick={() => onOcultarItem(item.id)}
+                      className="mt-0.5 shrink-0 text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Eliminar paso"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+
+            {/* Ítems agregados manualmente */}
             {localItems.map((item, i) => (
-              <li key={i} className="flex items-start gap-3 rounded-lg border p-3">
+              <li key={`adhoc-${i}`} className="flex items-start gap-3 rounded-lg border p-3">
                 <button
                   type="button"
-                  disabled={cerrada}
-                  onClick={() => toggle(i, !item.marcado)}
+                  disabled={cerrada || modoLectura}
+                  onClick={() => toggleAdHoc(i, !item.marcado)}
                   className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
                   aria-label={item.marcado ? "Desmarcar" : "Marcar completado"}
                 >
@@ -764,16 +773,17 @@ function ChecklistAdHoc({ tarea }: { tarea: TareaDetalle }) {
                     <Square className="h-4 w-4" />
                   )}
                 </button>
-                <span
-                  className={`flex-1 text-sm leading-snug ${item.marcado ? "line-through text-muted-foreground" : ""}`}
-                >
-                  {item.texto}
-                </span>
-                {!cerrada && (
+                <div className={`min-w-0 flex-1 flex items-start gap-1 text-sm leading-snug ${item.marcado ? "line-through text-muted-foreground" : ""}`}>
+                  <span className="tabular-nums text-muted-foreground mr-1 shrink-0">
+                    {totalCatalogo + i + 1}.
+                  </span>
+                  <span className="flex-1">{item.texto}</span>
+                </div>
+                {!cerrada && !modoLectura && (
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={() => eliminar(i)}
+                    onClick={() => eliminarAdHoc(i)}
                     className="mt-0.5 shrink-0 text-muted-foreground/40 hover:text-destructive transition-colors disabled:opacity-40"
                     aria-label="Eliminar paso"
                   >
@@ -785,32 +795,43 @@ function ChecklistAdHoc({ tarea }: { tarea: TareaDetalle }) {
           </ul>
         )}
 
-        {!cerrada && (
-          <div className="flex gap-2 pt-1">
-            <Input
-              ref={inputRef}
-              placeholder={localItems.length === 0 ? "Agregar primer paso…" : "Agregar paso…"}
-              value={nuevoTexto}
-              onChange={(e) => setNuevoTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  agregar();
-                }
-              }}
-              disabled={isPending}
-              className="text-sm"
-            />
-            <Button
+        {/* Agregar verificación */}
+        {!cerrada && !modoLectura && (
+          agregando ? (
+            <div className="flex items-center gap-2 pt-1">
+              <Input
+                ref={inputRef}
+                autoFocus
+                placeholder="Descripción del paso…"
+                value={nuevoTexto}
+                onChange={(e) => setNuevoTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); agregar(); }
+                  if (e.key === "Escape") { setNuevoTexto(""); setAgregando(false); }
+                }}
+                onBlur={() => { if (!nuevoTexto.trim()) { setNuevoTexto(""); setAgregando(false); } }}
+                disabled={isPending}
+                className="text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={agregar}
+                disabled={!nuevoTexto.trim() || isPending}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={agregar}
-              disabled={!nuevoTexto.trim() || isPending}
+              onClick={() => setAgregando(true)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
               <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+              Agregar una verificación
+            </button>
+          )
         )}
       </CardContent>
     </Card>
@@ -838,11 +859,12 @@ function ModalCompletar({
   const fechaInicioRealMs = tarea.fechaInicioReal?.getTime();
 
   const [open, setOpen] = useState(false);
-  const [tiempo, setTiempo] = useState(() =>
-    fechaInicioRealMs
+  const [tiempoStr, setTiempoStr] = useState(() => {
+    const v = fechaInicioRealMs
       ? Math.max(1, Math.round((new Date().getTime() - fechaInicioRealMs) / 60000))
-      : datos.tiempoMinimoMin,
-  );
+      : datos.tiempoMinimoMin;
+    return String(v);
+  });
   const [calidad, setCalidad] = useState<string>("");
   const [notas, setNotas] = useState("");
   const [ayudaToggle, setAyudaToggle] = useState(false);
@@ -858,10 +880,15 @@ function ModalCompletar({
       toast.error("Completá los pasos obligatorios del checklist antes");
       return;
     }
+    const tiempoFinal = parseInt(tiempoStr, 10);
+    if (!tiempoFinal || tiempoFinal < 1) {
+      toast.error("Ingresá un tiempo válido (mínimo 1 minuto)");
+      return;
+    }
     startTransition(async () => {
       const res = await completarTarea({
         tareaId: tarea.id,
-        tiempoInvertidoMin: tiempo,
+        tiempoInvertidoMin: tiempoFinal,
         calidadAutoeval: calidad ? parseInt(calidad, 10) : undefined,
         notasEjecutor: notas.trim() || undefined,
         ayudaCruzada:
@@ -916,8 +943,8 @@ function ModalCompletar({
               id="tiempo"
               type="number"
               min={1}
-              value={tiempo}
-              onChange={(e) => setTiempo(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              value={tiempoStr}
+              onChange={(e) => setTiempoStr(e.target.value)}
               required
             />
             <p className="text-xs text-muted-foreground tabular-nums">

@@ -18,6 +18,7 @@ import {
   Beaker,
   ShieldCheck,
   ListTodo,
+  CalendarDays,
 } from "lucide-react";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
   puedeGestionarRutas,
   puedeVerAnaliticas,
   puedeGestionarUsuarios,
+  puedeGestionarCalendarios,
 } from "@/lib/admin/permisos";
 
 const secciones = [
@@ -72,6 +74,7 @@ const secciones = [
     title: "Sistema",
     items: [
       { label: "Cobertura de puestos", href: "/admin/cobertura", icon: ShieldCheck, check: () => true },
+      { label: "Calendarios", href: "/admin/calendarios", icon: CalendarDays, check: puedeGestionarCalendarios },
     ],
   },
   {

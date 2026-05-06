@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect, useRef } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Circle,
   Clock,
+  Copy,
   ListChecks,
   Trash2,
   UserCheck,
@@ -26,6 +27,7 @@ import { infoNegocio } from "@/lib/tareas/negocios";
 import { BadgeNegocio } from "./SelectorNegocio";
 import {
   completarTarea,
+  duplicarTareaInstancia,
   editarChecklistItemTexto,
   eliminarTareaInstancia,
   marcarChecklistItem,
@@ -52,6 +54,9 @@ export type TareaCardProps = {
    *  de jefe sobre tareas de su equipo. */
   hideActions?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  /** Si se provee, se usa en lugar de la acción local (permite optimistic UI desde el padre). */
+  onDuplicarTarea?: () => void;
+  onEliminarTarea?: () => void;
 };
 
 const LABEL_CATEGORIA: Record<string, string> = {
@@ -74,29 +79,41 @@ function diasRestantes(fecha: Date): { texto: string; urgente: boolean } {
   return { texto: `${diff} días`, urgente: false };
 }
 
-export function TareaCard({ tarea, hideCompleteButton = false, hideActions = false, onExpandChange }: TareaCardProps) {
+export function TareaCard({ tarea, hideCompleteButton = false, hideActions = false, onExpandChange, onDuplicarTarea, onEliminarTarea }: TareaCardProps) {
   const router = useRouter();
   const [expand, setExpand] = useState(false);
   const [editingItem, setEditingItem] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [armado, setArmado] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onEliminar = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!armado) {
-      setArmado(true);
-      timerRef.current = setTimeout(() => setArmado(false), 2500);
+    if (onEliminarTarea) {
+      onEliminarTarea();
       return;
     }
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setArmado(false);
     startTransition(async () => {
       const res = await eliminarTareaInstancia(tarea.id);
       if (!res.success) toast.error(res.error ?? "Error al eliminar");
       else {
         toast.success("Tarea eliminada");
+        router.refresh();
+      }
+    });
+  };
+
+  const onDuplicar = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onDuplicarTarea) {
+      onDuplicarTarea();
+      return;
+    }
+    startTransition(async () => {
+      const res = await duplicarTareaInstancia(tarea.id);
+      if (!res.success) toast.error(res.error ?? "Error al duplicar");
+      else {
+        toast.success("Tarea duplicada");
         router.refresh();
       }
     });
@@ -225,9 +242,13 @@ export function TareaCard({ tarea, hideCompleteButton = false, hideActions = fal
         urgencia.urgente && !expand && "border-primary/50",
         datos.esAdHoc && "border-dashed",
         negocioInfo && `border-l-4 ${negocioInfo.borderClass}`,
+        tarea.esCopia && "opacity-60",
       )}
     >
       <CardContent className="space-y-2 p-3">
+        {tarea.esCopia && (
+          <p className="text-[10px] text-muted-foreground/70 italic">Copia · editá para personalizar</p>
+        )}
         {/* Encabezado — todo el título es link al detalle */}
         <Link
           href={`/tareas/${tarea.id}`}
@@ -297,21 +318,26 @@ export function TareaCard({ tarea, hideCompleteButton = false, hideActions = fal
               </span>
             )}
             {!hideActions && (
-              <button
-                type="button"
-                onClick={onEliminar}
-                disabled={isPending}
-                className={cn(
-                  "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors",
-                  armado
-                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                    : "text-muted-foreground hover:text-destructive",
-                )}
-                title={armado ? "Clic para confirmar eliminación" : "Eliminar tarea"}
-              >
-                <Trash2 className="h-3 w-3" />
-                {armado && <span>¿Eliminar?</span>}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={onDuplicar}
+                  disabled={isPending}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                  title="Duplicar tarea"
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onEliminar}
+                  disabled={isPending}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                  title="Eliminar tarea"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </>
             )}
           </div>
         </div>

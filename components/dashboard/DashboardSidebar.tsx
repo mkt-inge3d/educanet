@@ -31,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
-import { logoutAction } from "@/app/(dashboard)/actions";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -249,21 +248,10 @@ export function DashboardSidebar({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  const form = document.createElement("form");
-                  form.method = "POST";
-                  form.action = "";
-                  document.body.appendChild(form);
-                  // Use server action via fetch
-                  fetch("", { method: "POST" }).then(() => {
-                    window.location.href = "/login";
-                  });
-                }}
-              >
-                <form action={logoutAction} className="flex w-full items-center gap-2">
+              <DropdownMenuItem className="p-0">
+                <form action="/api/auth/logout" method="POST" className="flex w-full items-center gap-2 px-2 py-1.5">
                   <LogOut className="h-4 w-4" />
-                  <button type="submit" className="text-left">Cerrar sesion</button>
+                  <button type="submit" className="text-left w-full">Cerrar sesion</button>
                 </form>
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -20,6 +20,7 @@ export type CrearWorkflowInput = {
    *  se toma la del responsable general. */
   areaId?: string;
   notas?: string;
+  calendarId?: string;
 };
 
 export type CrearWorkflowResult = {
@@ -67,6 +68,7 @@ export async function crearWorkflowDesdeTemplate(
       fechaHito: params.fechaHito,
       responsableGeneralId: params.responsableGeneralId,
       notas: params.notas,
+      calendarId: params.calendarId ?? null,
       estadoGeneral: "ACTIVO",
     },
   });

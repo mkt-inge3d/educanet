@@ -2,13 +2,7 @@ import { LoginForm } from "./login-form";
 
 export const metadata = { title: "Iniciar sesion" };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ redirectTo?: string }>;
-}) {
-  const params = await searchParams;
-
+export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
@@ -20,7 +14,7 @@ export default async function LoginPage({
         </p>
       </div>
 
-      <LoginForm redirectTo={params.redirectTo} />
+      <LoginForm />
     </div>
   );
 }

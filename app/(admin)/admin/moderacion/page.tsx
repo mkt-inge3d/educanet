@@ -11,8 +11,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
+import { TiempoRelativo } from "@/components/ui/TiempoRelativo";
 import { ResolverReporteBoton } from "./resolver-reporte-boton";
 
 async function obtenerReportesPendientes() {
@@ -133,10 +132,7 @@ export default async function ModeracionPage() {
                             <span className="font-medium text-foreground">
                               Motivo ({r.reportador.nombre}{" "}
                               {r.reportador.apellido},{" "}
-                              {formatDistanceToNow(new Date(r.createdAt), {
-                                addSuffix: true,
-                                locale: es,
-                              })}
+                              <TiempoRelativo fecha={r.createdAt} />
                               ):
                             </span>{" "}
                             {r.razon}
