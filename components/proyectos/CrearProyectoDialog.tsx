@@ -64,15 +64,22 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios }: Crear
     setError(null)
     setLoading(true)
 
-    const res = await instanciarWorkflow({
-      plantillaId,
-      nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
-      contextoMarca: contextoMarca || undefined,
-      fechaHito: new Date(fechaHito),
-      responsableGeneralId: responsableId,
-      calendarId: calendarId || undefined,
-      notas: notas || undefined,
-    })
+    let res
+    try {
+      res = await instanciarWorkflow({
+        plantillaId,
+        nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
+        contextoMarca: contextoMarca || undefined,
+        fechaHito: new Date(fechaHito),
+        responsableGeneralId: responsableId,
+        calendarId: calendarId || undefined,
+        notas: notas || undefined,
+      })
+    } catch (err) {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : "Error inesperado al crear el proyecto")
+      return
+    }
 
     setLoading(false)
 
