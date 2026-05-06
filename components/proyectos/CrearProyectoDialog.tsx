@@ -91,6 +91,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
 
     setResultado({ tareasCreadas: res.tareasCreadas, tareasOmitidas: res.tareasOmitidas })
     setWorkflowCreado(res.workflowInstanciaId)
+    router.refresh()
   }
 
   function handleOpenChange(v: boolean) {
