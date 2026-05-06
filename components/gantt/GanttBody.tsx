@@ -143,6 +143,12 @@ export function GanttBody({
     onDepDrawStart(taskId, side, e.clientX, e.clientY)
   }
 
+  function handleDragStartCapture(e: React.PointerEvent, payload: Parameters<typeof onDragStart>[0]) {
+    e.stopPropagation()
+    svgRef.current?.setPointerCapture(e.pointerId)
+    onDragStart(payload)
+  }
+
   // Bezier preview path para dep-draw
   function depPreviewPath(): string {
     if (!depDraw) return ""
@@ -247,9 +253,9 @@ export function GanttBody({
         const isDragging = bar.taskId === draggingId
         const isOver = depDraw?.overBarId === bar.taskId
         if (bar.isMilestone)
-          return <Milestone key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={onDragStart} />
+          return <Milestone key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={(p, e) => handleDragStartCapture(e, p)} />
         if (bar.hasChildren)
-          return <SummaryBar key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={onDragStart} onDepDrawStart={handleDepDrawStartCapture} isOver={isOver} />
+          return <SummaryBar key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={(p, e) => handleDragStartCapture(e, p)} onDepDrawStart={handleDepDrawStartCapture} isOver={isOver} />
         return (
           <TaskBar
             key={bar.taskId}
@@ -259,7 +265,7 @@ export function GanttBody({
             isDragging={isDragging}
             isOver={isOver}
             isDepDrawing={isDepDrawing}
-            onDragStart={onDragStart}
+            onDragStart={(p, e) => handleDragStartCapture(e, p)}
             onDepDrawStart={handleDepDrawStartCapture}
           />
         )
@@ -294,7 +300,7 @@ function TaskBar({
   isDragging: boolean
   isOver: boolean
   isDepDrawing: boolean
-  onDragStart: (p: DragStartPayload) => void
+  onDragStart: (p: DragStartPayload, e: React.PointerEvent) => void
   onDepDrawStart: (e: React.PointerEvent, taskId: string, side: "left" | "right") => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
@@ -335,8 +341,7 @@ function TaskBar({
         style={{ cursor: isDepDrawing ? "crosshair" : "grab" }}
         onPointerDown={(e) => {
           if (isDepDrawing) return
-          e.stopPropagation()
-          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
         }}
       />
       {/* Progreso */}
@@ -358,8 +363,7 @@ function TaskBar({
         style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
           if (isDepDrawing) return
-          e.stopPropagation()
-          onDragStart({ taskId: bar.taskId, mode: "resize-left", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+          onDragStart({ taskId: bar.taskId, mode: "resize-left", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
         }}
       />
       {/* Handle resize derecho */}
@@ -370,8 +374,7 @@ function TaskBar({
         style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
           if (isDepDrawing) return
-          e.stopPropagation()
-          onDragStart({ taskId: bar.taskId, mode: "resize-right", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+          onDragStart({ taskId: bar.taskId, mode: "resize-right", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
         }}
       />
       {/* Conector izquierdo */}
@@ -398,7 +401,7 @@ function TaskBar({
 
 function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepDrawStart }: {
   bar: BarLayout; showCritical: boolean; isDragging: boolean; isOver: boolean
-  onDragStart: (p: DragStartPayload) => void
+  onDragStart: (p: DragStartPayload, e: React.PointerEvent) => void
   onDepDrawStart: (e: React.PointerEvent, taskId: string, side: "left" | "right") => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
@@ -421,8 +424,7 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
       <g
         style={{ cursor: "grab" }}
         onPointerDown={(e) => {
-          e.stopPropagation()
-          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
         }}
       >
         <rect x={bar.x} y={ty} width={bar.w} height={THIN} fill={color} />
@@ -449,25 +451,37 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
 
 function Milestone({ bar, showCritical, isDragging, onDragStart }: {
   bar: BarLayout; showCritical: boolean; isDragging: boolean
-  onDragStart: (p: DragStartPayload) => void
+  onDragStart: (p: DragStartPayload, e: React.PointerEvent) => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
   const cx = bar.x + MILESTONE_R
   const cy = bar.barY + BAR_H / 2
   const r = MILESTONE_R
+  const HIT = r + 8  // área de clic más amplia
 
   return (
-    <polygon
-      points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
-      fill={crit ? C.critMilestone : C.milestone}
-      stroke={crit ? "hsl(0 72% 38%)" : "hsl(221 83% 38%)"}
-      strokeWidth={1}
+    <g
       opacity={isDragging ? 0.7 : 1}
       style={{ cursor: "grab" }}
       onPointerDown={(e) => {
-        e.stopPropagation()
-        onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+        onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
       }}
-    />
+    >
+      {/* Hit area invisible más grande */}
+      <rect
+        x={cx - HIT} y={cy - HIT}
+        width={HIT * 2} height={HIT * 2}
+        fill="transparent"
+        style={{ pointerEvents: "all" }}
+      />
+      {/* Rombo visible */}
+      <polygon
+        points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
+        fill={crit ? C.critMilestone : C.milestone}
+        stroke={crit ? "hsl(0 72% 38%)" : "hsl(221 83% 38%)"}
+        strokeWidth={1}
+        style={{ pointerEvents: "none" }}
+      />
+    </g>
   )
 }
