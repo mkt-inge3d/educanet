@@ -199,31 +199,45 @@ function buildDepPath(
   stub: number,
   row1: number, row2: number
 ): string {
-  const R = 5  // radio de esquinas redondeadas
+  const R = 4  // radio esquinas — estilo Asana
 
-  // Caso normal: S-curve bezier suave
-  if (x2 >= x1 + stub * 2) {
-    const t = Math.min((x2 - x1) * 0.45, 80)
-    return `M ${x1} ${y1} C ${x1 + t} ${y1} ${x2 - t} ${y2} ${x2} ${y2}`
+  // Helper: esquina redondeada H→V o V→H con Q
+  function corner(cx: number, cy: number, dx: number, dy: number) {
+    return `Q ${cx} ${cy} ${cx + dx} ${cy + dy}`
   }
 
-  // Caso inverso: loop con esquinas redondeadas por arco Q
+  // Caso normal: ┐ o ┘ con esquinas suaves
+  if (x2 >= x1 + stub * 2) {
+    const midX = x1 + stub
+    if (Math.abs(y2 - y1) < 1) return `M ${x1} ${y1} H ${x2}`
+    const dy = y2 > y1 ? 1 : -1
+    return [
+      `M ${x1} ${y1}`,
+      `H ${midX - R}`,
+      corner(midX, y1, 0, R * dy),
+      `V ${y2 - R * dy}`,
+      corner(midX, y2, R, 0),
+      `H ${x2}`,
+    ].join(" ")
+  }
+
+  // Caso inverso: loop ┐┐ con esquinas suaves
   const loopUp = row1 < row2
   const yMid = loopUp ? y1 - ROW_H * 0.6 : y1 + ROW_H * 0.6
   const loopX = Math.min(x1, x2) - stub * 2
-  const d1 = loopUp ? -1 : 1           // dirección primer vertical (−=arriba, +=abajo)
-  const d2 = y2 > yMid ? 1 : -1        // dirección segundo vertical
+  const d1 = loopUp ? -1 : 1
+  const d2 = y2 > yMid ? 1 : -1
 
   return [
     `M ${x1} ${y1}`,
     `H ${x1 + stub - R}`,
-    `Q ${x1 + stub} ${y1} ${x1 + stub} ${y1 + R * d1}`,
+    corner(x1 + stub, y1, 0, R * d1),
     `V ${yMid - R * d1}`,
-    `Q ${x1 + stub} ${yMid} ${x1 + stub - R} ${yMid}`,
+    corner(x1 + stub, yMid, -R, 0),
     `H ${loopX + R}`,
-    `Q ${loopX} ${yMid} ${loopX} ${yMid + R * d2}`,
+    corner(loopX, yMid, 0, R * d2),
     `V ${y2 - R * d2}`,
-    `Q ${loopX} ${y2} ${loopX + R} ${y2}`,
+    corner(loopX, y2, R, 0),
     `H ${x2}`,
   ].join(" ")
 }
