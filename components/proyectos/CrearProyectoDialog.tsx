@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
 import { instanciarWorkflow } from "@/lib/admin/workflow-instancia-actions"
+import { MARCAS } from "@/lib/marcas"
 import { format } from "date-fns"
 
 interface Plantilla { id: string; nombre: string; categoria: string }
@@ -37,20 +38,28 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
 
   const [plantillaId, setPlantillaId] = useState(plantillas[0]?.id ?? "")
   const [nombre, setNombre] = useState("")
-  const [contextoMarca, setContextoMarca] = useState("")
+  const [marcaId, setMarcaId] = useState("")
+  const [otraMarca, setOtraMarca] = useState("")
   const [fechaHito, setFechaHito] = useState(format(new Date(), "yyyy-MM-dd"))
   const [responsableId, setResponsableId] = useState(currentUserId || usuarios[0]?.id || "")
   const [calendarId, setCalendarId] = useState("")
   const [notas, setNotas] = useState("")
 
   const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId)
+  const marcaSeleccionada = MARCAS.find((m) => m.id === marcaId)
+
+  // Valor final que se guarda en contextoMarca
+  const contextoMarcaFinal = marcaId === "otro"
+    ? otraMarca.trim()
+    : (marcaSeleccionada?.label ?? "")
 
   function resetForm() {
     setPlantillaId(plantillas[0]?.id ?? "")
     setNombre("")
-    setContextoMarca("")
+    setMarcaId("")
+    setOtraMarca("")
     setFechaHito(format(new Date(), "yyyy-MM-dd"))
-    setResponsableId(usuarios[0]?.id ?? "")
+    setResponsableId(currentUserId || usuarios[0]?.id || "")
     setCalendarId("")
     setNotas("")
     setError(null)
@@ -70,7 +79,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
       res = await instanciarWorkflow({
         plantillaId,
         nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
-        contextoMarca: contextoMarca || undefined,
+        contextoMarca: contextoMarcaFinal || undefined,
         fechaHito: new Date(fechaHito),
         responsableGeneralId: responsableId,
         calendarId: calendarId || undefined,
@@ -163,6 +172,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1.5">
                 <Label>Nombre del proyecto</Label>
                 <Input
@@ -171,14 +181,50 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   placeholder={plantillaSeleccionada?.nombre ?? "Nombre…"}
                 />
               </div>
+
+              {/* Selector de marca */}
               <div className="space-y-1.5">
-                <Label>Contexto / marca <span className="text-muted-foreground">(opcional)</span></Label>
-                <Input
-                  value={contextoMarca}
-                  onChange={(e) => setContextoMarca(e.target.value)}
-                  placeholder="Marca, campaña, cliente…"
-                />
+                <Label>Marca <span className="text-muted-foreground">(opcional)</span></Label>
+                <Select value={marcaId} onValueChange={(v) => setMarcaId(v === "__none__" ? "" : (v ?? ""))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar marca…">
+                      {marcaSeleccionada && (
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: marcaSeleccionada.color }}
+                          />
+                          {marcaSeleccionada.label}
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin marca</SelectItem>
+                    {MARCAS.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: m.color }}
+                          />
+                          {m.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {marcaId === "otro" && (
+                  <Input
+                    className="mt-1.5"
+                    value={otraMarca}
+                    onChange={(e) => setOtraMarca(e.target.value)}
+                    placeholder="Nombre de la marca…"
+                    autoFocus
+                  />
+                )}
               </div>
+
               <div className="space-y-1.5">
                 <Label>Fecha hito</Label>
                 <Input
@@ -188,6 +234,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   required
                 />
               </div>
+
               <div className="space-y-1.5">
                 <Label>Responsable general</Label>
                 <Select value={responsableId} onValueChange={(v) => setResponsableId(v ?? "")}>
@@ -203,6 +250,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   </SelectContent>
                 </Select>
               </div>
+
               {calendarios.length > 0 && (
                 <div className="space-y-1.5">
                   <Label>Calendario laboral <span className="text-muted-foreground">(opcional)</span></Label>
@@ -221,6 +269,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   </Select>
                 </div>
               )}
+
               <div className="space-y-1.5">
                 <Label>Notas <span className="text-muted-foreground">(opcional)</span></Label>
                 <Input
@@ -229,6 +278,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                   placeholder="Observaciones generales…"
                 />
               </div>
+
               {error && <p className="text-sm text-destructive">{error}</p>}
             </form>
             <DialogFooter>
