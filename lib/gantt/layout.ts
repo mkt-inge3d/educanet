@@ -199,15 +199,33 @@ function buildDepPath(
   stub: number,
   row1: number, row2: number
 ): string {
-  // Caso normal: sucesor está a la derecha del predecesor
+  const R = 5  // radio de esquinas redondeadas
+
+  // Caso normal: S-curve bezier suave
   if (x2 >= x1 + stub * 2) {
-    const midX = x1 + stub
-    return `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`
+    const t = Math.min((x2 - x1) * 0.45, 80)
+    return `M ${x1} ${y1} C ${x1 + t} ${y1} ${x2 - t} ${y2} ${x2} ${y2}`
   }
-  // Caso inverso: sucesor está antes o muy cerca — rodeamos por arriba o abajo
-  const yMid = row1 < row2 ? y1 - ROW_H * 0.6 : y1 + ROW_H * 0.6
+
+  // Caso inverso: loop con esquinas redondeadas por arco Q
+  const loopUp = row1 < row2
+  const yMid = loopUp ? y1 - ROW_H * 0.6 : y1 + ROW_H * 0.6
   const loopX = Math.min(x1, x2) - stub * 2
-  return `M ${x1} ${y1} H ${x1 + stub} V ${yMid} H ${loopX} V ${y2} H ${x2}`
+  const d1 = loopUp ? -1 : 1           // dirección primer vertical (−=arriba, +=abajo)
+  const d2 = y2 > yMid ? 1 : -1        // dirección segundo vertical
+
+  return [
+    `M ${x1} ${y1}`,
+    `H ${x1 + stub - R}`,
+    `Q ${x1 + stub} ${y1} ${x1 + stub} ${y1 + R * d1}`,
+    `V ${yMid - R * d1}`,
+    `Q ${x1 + stub} ${yMid} ${x1 + stub - R} ${yMid}`,
+    `H ${loopX + R}`,
+    `Q ${loopX} ${yMid} ${loopX} ${yMid + R * d2}`,
+    `V ${y2 - R * d2}`,
+    `Q ${loopX} ${y2} ${loopX + R} ${y2}`,
+    `H ${x2}`,
+  ].join(" ")
 }
 
 // ── Cómputo del header (celdas de fecha) ─────────────────────────────────────

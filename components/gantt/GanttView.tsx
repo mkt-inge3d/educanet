@@ -290,10 +290,16 @@ export function GanttView({
       else if (fromSide === "left" && toSide === "left") tipo = "INICIO_A_INICIO"
       else if (fromSide === "left" && toSide === "right") tipo = "INICIO_A_FIN"
 
-      const res = await crearDependencia(workflowId, fromTaskId, overBarId, tipo)
-      if ("error" in res) { alert(res.error); return }
-      const tempId = `dep-${Date.now()}`
+      // Optimistic: mostrar la dependencia de inmediato
+      const tempId = `opt-dep-${Date.now()}`
       setDeps((prev) => [...prev, { id: tempId, predecesora: fromTaskId, sucesora: overBarId, tipo, lagMinutos: 0 }])
+
+      const res = await crearDependencia(workflowId, fromTaskId, overBarId, tipo)
+      if ("error" in res) {
+        setDeps((prev) => prev.filter((d) => d.id !== tempId))
+        alert(res.error)
+        return
+      }
       router.refresh()
       return
     }
