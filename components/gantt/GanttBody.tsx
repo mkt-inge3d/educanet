@@ -408,9 +408,12 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
 }) {
   const crit = showCritical && bar.isOnCriticalPath
   const color = crit ? C.critSummary : C.summary
-  const THIN = 6
-  const ty = bar.barY + (BAR_H - THIN) / 2
-  const ARR = 7
+
+  // Estilo MS Project: barra gruesa en la parte superior + triángulos apuntando hacia abajo en los extremos
+  const BAR_TH = 9   // grosor de la barra horizontal
+  const TRI_W = 9    // base del triángulo (en el extremo)
+  const TRI_H = 9    // altura del triángulo (punta hacia abajo)
+  const ty = bar.barY
   const midY = bar.barY + BAR_H / 2
 
   return (
@@ -419,7 +422,7 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
         <rect
           x={bar.x - 2} y={bar.barY - 2}
           width={bar.w + 4} height={BAR_H + 4}
-          rx={3} fill="none" stroke={C.overBar} strokeWidth={2} opacity={0.8}
+          rx={2} fill="none" stroke={C.overBar} strokeWidth={2} opacity={0.8}
           style={{ pointerEvents: "none" }}
         />
       )}
@@ -429,9 +432,18 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
           onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() }, e)
         }}
       >
-        <rect x={bar.x} y={ty} width={bar.w} height={THIN} fill={color} />
-        <polygon points={`${bar.x},${ty} ${bar.x + ARR},${ty} ${bar.x},${ty + THIN + ARR}`} fill={color} />
-        <polygon points={`${bar.x + bar.w},${ty} ${bar.x + bar.w - ARR},${ty} ${bar.x + bar.w},${ty + THIN + ARR}`} fill={color} />
+        {/* Barra horizontal gruesa — span completo */}
+        <rect x={bar.x} y={ty} width={bar.w} height={BAR_TH} fill={color} rx={2} />
+        {/* Triángulo izquierdo: cuelga de la esquina inferior-izquierda */}
+        <polygon
+          points={`${bar.x},${ty + BAR_TH} ${bar.x + TRI_W},${ty + BAR_TH} ${bar.x},${ty + BAR_TH + TRI_H}`}
+          fill={color}
+        />
+        {/* Triángulo derecho: cuelga de la esquina inferior-derecha */}
+        <polygon
+          points={`${bar.x + bar.w - TRI_W},${ty + BAR_TH} ${bar.x + bar.w},${ty + BAR_TH} ${bar.x + bar.w},${ty + BAR_TH + TRI_H}`}
+          fill={color}
+        />
       </g>
       <circle
         cx={bar.x} cy={midY} r={DOT_R}

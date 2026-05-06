@@ -299,9 +299,36 @@ export function GanttView({
     }
 
     const newOverrides = new Map([[ds.taskId, { inicio: newInicio, fin: newFin }]])
+
+    const draggingTask = tasks.find((t) => t.id === ds.taskId)
+
+    // Si se arrastra el padre: mover todos los hijos por el mismo delta (solo en modo "move")
+    if (draggingTask?.hasChildren && mode === "move") {
+      for (const t of tasks) {
+        if (t.parentId === ds.taskId) {
+          newOverrides.set(t.id, {
+            inicio: addDays(t.inicio, deltaDays),
+            fin: addDays(t.fin, deltaDays),
+          })
+        }
+      }
+    }
+
+    // Si se arrastra un hijo: recalcular el rango del padre en tiempo real
+    if (draggingTask?.parentId) {
+      const parentId = draggingTask.parentId
+      const siblings = tasks.filter((t) => t.parentId === parentId)
+      const starts = siblings.map((t) => (t.id === ds.taskId ? newInicio : t.inicio).getTime())
+      const ends   = siblings.map((t) => (t.id === ds.taskId ? newFin   : t.fin).getTime())
+      newOverrides.set(parentId, {
+        inicio: new Date(Math.min(...starts)),
+        fin:    new Date(Math.max(...ends)),
+      })
+    }
+
     dragOverridesRef.current = newOverrides
     setDragOverrides(newOverrides)
-  }, [pxPerDay, bars, toSvgCoords])
+  }, [pxPerDay, bars, toSvgCoords, tasks])
 
   const handlePointerUp = useCallback(async () => {
     // Fin dep-draw — lee del ref para evitar stale closure

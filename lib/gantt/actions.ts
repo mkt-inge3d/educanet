@@ -64,6 +64,7 @@ async function obtenerTodasLasTareas(workflowId: string) {
     where: { workflowInstanciaId: workflowId },
     select: {
       id: true,
+      parentId: true,
       fechaEstimadaInicio: true,
       fechaEstimadaFin: true,
       duracionMinutos: true,
@@ -122,6 +123,42 @@ export async function moverTarea(
 
   const updates = rescheduleSuccessors(tareaId, nuevoInicio, nuevoFin, nodes, deps, cal)
   updates.set(tareaId, { inicio: nuevoInicio, fin: nuevoFin })
+
+  const movedTask = tareas.find((t) => t.id === tareaId)
+
+  // Si se mueve una tarea padre: cascada a todos sus hijos (solo si es un desplazamiento puro)
+  if (movedTask) {
+    const origDurMs = movedTask.fechaEstimadaFin.getTime() - movedTask.fechaEstimadaInicio.getTime()
+    const newDurMs = nuevoFin.getTime() - nuevoInicio.getTime()
+    const isPureMove = Math.abs(origDurMs - newDurMs) < 60_000
+    if (isPureMove) {
+      const deltaMs = nuevoInicio.getTime() - movedTask.fechaEstimadaInicio.getTime()
+      for (const t of tareas) {
+        if (t.parentId === tareaId && !updates.has(t.id)) {
+          updates.set(t.id, {
+            inicio: new Date(t.fechaEstimadaInicio.getTime() + deltaMs),
+            fin: new Date(t.fechaEstimadaFin.getTime() + deltaMs),
+          })
+        }
+      }
+    }
+  }
+
+  // Si se mueve una tarea hija: recalcular fechas del padre (min inicio / max fin de todos los hijos)
+  if (movedTask?.parentId) {
+    const mergedDates = new Map(tareas.map((t) => [
+      t.id, { inicio: t.fechaEstimadaInicio, fin: t.fechaEstimadaFin },
+    ]))
+    for (const [id, dates] of updates) mergedDates.set(id, dates)
+
+    const siblings = tareas.filter((t) => t.parentId === movedTask.parentId)
+    const starts = siblings.map((s) => (mergedDates.get(s.id)?.inicio ?? s.fechaEstimadaInicio).getTime())
+    const ends   = siblings.map((s) => (mergedDates.get(s.id)?.fin   ?? s.fechaEstimadaFin).getTime())
+    updates.set(movedTask.parentId, {
+      inicio: new Date(Math.min(...starts)),
+      fin:    new Date(Math.max(...ends)),
+    })
+  }
 
   await prisma.$transaction([
     // Actualizar tarea raíz
