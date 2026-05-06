@@ -199,7 +199,7 @@ function buildDepPath(
   stub: number,
   row1: number, row2: number
 ): string {
-  const R = 4  // radio esquinas — estilo Asana
+  const R = 7  // radio esquinas
 
   // Helper: esquina redondeada H→V o V→H con Q
   function corner(cx: number, cy: number, dx: number, dy: number) {
