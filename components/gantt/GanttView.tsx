@@ -411,7 +411,7 @@ export function GanttView({
         }
       />
 
-      <div className="flex flex-1 overflow-hidden" ref={contentRef}>
+      <div className="flex min-w-0 flex-1 overflow-hidden" ref={contentRef}>
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
         <div className="flex shrink-0 flex-col" style={{ width: SIDEBAR_W }}>
           {/* Header sidebar con columna Dur. */}
@@ -440,7 +440,7 @@ export function GanttView({
         </div>
 
         {/* ── Timeline ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="shrink-0 overflow-hidden border-b" style={{ height: HEADER_H }}>
             <div ref={headerInnerRef} style={{ width: totalDays * pxPerDay }}>
               <GanttHeader level1={level1} level2={level2} totalW={totalDays * pxPerDay} timelineStart={timelineStart} pxPerDay={pxPerDay} />
@@ -448,7 +448,7 @@ export function GanttView({
           </div>
           <div
             ref={bodyRef}
-            className="flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-primary/50 [&::-webkit-scrollbar-thumb:hover]:bg-primary"
+            className="min-w-0 flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-primary/50 [&::-webkit-scrollbar-thumb:hover]:bg-primary"
             onScroll={handleScroll}
           >
             <GanttBody
