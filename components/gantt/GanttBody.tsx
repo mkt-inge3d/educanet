@@ -133,7 +133,7 @@ export function GanttBody({
     if (!override) return bar
     const x = differenceInDays(startOfDay(override.inicio), startOfDay(timelineStart)) * pxPerDay
     const x2 = differenceInDays(startOfDay(override.fin), startOfDay(timelineStart)) * pxPerDay
-    const w = Math.max(x2 - x, pxPerDay * 0.15)
+    const w = Math.max(x2 - x, pxPerDay)  // mínimo 1 día visible
     return { ...bar, x, w }
   })
 

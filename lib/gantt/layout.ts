@@ -123,7 +123,7 @@ export function computeBarLayouts(
     const row = rowsByTaskId.get(task.id) ?? 0
     const x = dateToX(task.inicio, timelineStart, pxPerDay)
     const x2 = dateToX(task.fin, timelineStart, pxPerDay)
-    const w = Math.max(x2 - x, pxPerDay * 0.15)
+    const w = Math.max(x2 - x, pxPerDay)  // mínimo 1 día visible
     const barY = row * ROW_H + (ROW_H - BAR_H) / 2
 
     let baselineX: number | undefined
