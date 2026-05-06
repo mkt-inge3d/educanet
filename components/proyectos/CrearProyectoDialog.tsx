@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
 import { instanciarWorkflow } from "@/lib/admin/workflow-instancia-actions"
-import { MARCAS } from "@/lib/marcas"
+import { SelectorNegocio } from "@/components/tareas/SelectorNegocio"
+import type { Negocio } from "@prisma/client"
 import { format } from "date-fns"
 
 interface Plantilla { id: string; nombre: string; categoria: string }
@@ -38,26 +39,18 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
 
   const [plantillaId, setPlantillaId] = useState(plantillas[0]?.id ?? "")
   const [nombre, setNombre] = useState("")
-  const [marcaId, setMarcaId] = useState("")
-  const [otraMarca, setOtraMarca] = useState("")
+  const [negocio, setNegocio] = useState<Negocio | null>(null)
   const [fechaHito, setFechaHito] = useState(format(new Date(), "yyyy-MM-dd"))
   const [responsableId, setResponsableId] = useState(currentUserId || usuarios[0]?.id || "")
   const [calendarId, setCalendarId] = useState("")
   const [notas, setNotas] = useState("")
 
   const plantillaSeleccionada = plantillas.find((p) => p.id === plantillaId)
-  const marcaSeleccionada = MARCAS.find((m) => m.id === marcaId)
-
-  // Valor final que se guarda en contextoMarca
-  const contextoMarcaFinal = marcaId === "otro"
-    ? otraMarca.trim()
-    : (marcaSeleccionada?.label ?? "")
 
   function resetForm() {
     setPlantillaId(plantillas[0]?.id ?? "")
     setNombre("")
-    setMarcaId("")
-    setOtraMarca("")
+    setNegocio(null)
     setFechaHito(format(new Date(), "yyyy-MM-dd"))
     setResponsableId(currentUserId || usuarios[0]?.id || "")
     setCalendarId("")
@@ -79,7 +72,7 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
       res = await instanciarWorkflow({
         plantillaId,
         nombre: nombre || (plantillaSeleccionada?.nombre ?? ""),
-        contextoMarca: contextoMarcaFinal || undefined,
+        negocio,
         fechaHito: new Date(fechaHito),
         responsableGeneralId: responsableId,
         calendarId: calendarId || undefined,
@@ -182,47 +175,9 @@ export function CrearProyectoDialog({ plantillas, usuarios, calendarios, current
                 />
               </div>
 
-              {/* Selector de marca */}
               <div className="space-y-1.5">
-                <Label>Marca <span className="text-muted-foreground">(opcional)</span></Label>
-                <Select value={marcaId} onValueChange={(v) => setMarcaId(v === "__none__" ? "" : (v ?? ""))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar marca…">
-                      {marcaSeleccionada && (
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: marcaSeleccionada.color }}
-                          />
-                          {marcaSeleccionada.label}
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sin marca</SelectItem>
-                    {MARCAS.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: m.color }}
-                          />
-                          {m.label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {marcaId === "otro" && (
-                  <Input
-                    className="mt-1.5"
-                    value={otraMarca}
-                    onChange={(e) => setOtraMarca(e.target.value)}
-                    placeholder="Nombre de la marca…"
-                    autoFocus
-                  />
-                )}
+                <Label>Marca / negocio <span className="text-muted-foreground">(opcional)</span></Label>
+                <SelectorNegocio value={negocio} onChange={setNegocio} placeholder="Sin asignar" />
               </div>
 
               <div className="space-y-1.5">

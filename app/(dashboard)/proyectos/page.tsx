@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { CrearProyectoDialog } from "@/components/proyectos/CrearProyectoDialog"
-import { getMarcaByLabel, MARCAS } from "@/lib/marcas"
+import { BadgeNegocio } from "@/components/tareas/SelectorNegocio"
 
 export const metadata = { title: "Mis proyectos" }
 
@@ -104,26 +104,9 @@ export default async function ProyectosPage() {
               <Card key={wf.id} className="flex flex-col">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex flex-col gap-1">
                       <CardTitle className="text-base leading-snug">{wf.nombre}</CardTitle>
-                      {wf.contextoMarca && (() => {
-                        const marca = getMarcaByLabel(wf.contextoMarca)
-                        const isKnown = marca && marca.id !== "otro"
-                        return (
-                          <span
-                            className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={isKnown
-                              ? { backgroundColor: marca.bg + "22", color: marca.color, border: `1px solid ${marca.color}44` }
-                              : { backgroundColor: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }
-                            }
-                          >
-                            {isKnown && (
-                              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: marca.color }} />
-                            )}
-                            {wf.contextoMarca}
-                          </span>
-                        )
-                      })()}
+                      {wf.negocio && <BadgeNegocio negocio={wf.negocio} />}
                     </div>
                     <Badge className={`shrink-0 text-[10px] ${ESTADO_COLOR[wf.estadoGeneral] ?? ""}`}>
                       {ESTADO_LABEL[wf.estadoGeneral] ?? wf.estadoGeneral}
@@ -131,13 +114,11 @@ export default async function ProyectosPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-4">
-                  {/* Plantilla */}
                   <div className="flex flex-wrap gap-2 text-xs">
                     <Badge variant="outline">{wf.plantilla.nombre}</Badge>
                     <Badge variant="outline">{wf.plantilla.categoria}</Badge>
                   </div>
 
-                  {/* Info */}
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5 shrink-0" />
@@ -169,7 +150,6 @@ export default async function ProyectosPage() {
                     </div>
                   </div>
 
-                  {/* Progreso */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Progreso general</span>
@@ -178,7 +158,6 @@ export default async function ProyectosPage() {
                     <Progress value={progreso} className="h-1.5" />
                   </div>
 
-                  {/* CTA */}
                   <div className="mt-auto pt-1">
                     <Button
                       size="sm"

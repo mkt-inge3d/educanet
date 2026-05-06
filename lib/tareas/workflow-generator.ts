@@ -14,6 +14,7 @@ export type CrearWorkflowInput = {
   plantillaId: string;
   nombre: string;
   contextoMarca?: string;
+  negocio?: import("@prisma/client").Negocio | null;
   fechaHito: Date;
   responsableGeneralId: string;
   /** Área donde buscar al usuario del puesto correspondiente. Si se omite,
@@ -65,6 +66,7 @@ export async function crearWorkflowDesdeTemplate(
       plantillaId: params.plantillaId,
       nombre: params.nombre,
       contextoMarca: params.contextoMarca,
+      negocio: params.negocio ?? null,
       fechaHito: params.fechaHito,
       responsableGeneralId: params.responsableGeneralId,
       notas: params.notas,

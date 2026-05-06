@@ -1151,6 +1151,7 @@ model WorkflowInstancia {
   plantillaId          String
   nombre               String
   contextoMarca        String?
+  negocio              Negocio?
   fechaHito            DateTime
   estadoGeneral        EstadoWorkflow     @default(ACTIVO)
   responsableGeneralId String

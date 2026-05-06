@@ -3,11 +3,13 @@
 import { requireAuth } from "@/lib/auth"
 import { crearWorkflowDesdeTemplate } from "@/lib/tareas/workflow-generator"
 import { revalidatePath } from "next/cache"
+import type { Negocio } from "@prisma/client"
 
 export async function instanciarWorkflow(data: {
   plantillaId: string
   nombre: string
   contextoMarca?: string
+  negocio?: Negocio | null
   fechaHito: Date
   responsableGeneralId: string
   calendarId?: string
@@ -20,6 +22,7 @@ export async function instanciarWorkflow(data: {
       plantillaId: data.plantillaId,
       nombre: data.nombre,
       contextoMarca: data.contextoMarca,
+      negocio: data.negocio,
       fechaHito: data.fechaHito,
       responsableGeneralId: data.responsableGeneralId,
       calendarId: data.calendarId,
