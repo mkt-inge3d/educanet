@@ -112,7 +112,7 @@ export function DashboardSidebar({
       <motion.aside
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="fixed inset-y-0 left-0 z-30 hidden flex-col glass-subtle border-r border-border/50 md:flex"
+        className="fixed inset-y-0 left-0 z-30 hidden flex-col bg-card border-r border-border md:flex"
       >
         {/* Header */}
         <div className="flex h-16 items-center justify-between px-4">

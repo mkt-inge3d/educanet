@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  ROW_H, HEADER_H, SIDEBAR_W, ZOOM_PX_PER_DAY,
+  ROW_H, BAR_H, HEADER_H, SIDEBAR_W, ZOOM_PX_PER_DAY,
   type ZoomLevel, type GanttTask, type GanttDep,
   computeTimelineRange, computeBarLayouts, computeDepPaths,
   computeHeaderCells, computeDayStripes, assignDepths,
@@ -12,11 +12,15 @@ import type { CalendarioGantt } from "@/lib/gantt/types"
 import { GanttToolbar } from "./GanttToolbar"
 import { GanttSidebar } from "./GanttSidebar"
 import { GanttHeader } from "./GanttHeader"
-import { GanttBody, type DragStartPayload } from "./GanttBody"
+import { GanttBody, type DragStartPayload, type DepDrawState } from "./GanttBody"
 import { TaskDrawer } from "./TaskDrawer"
 import { AddTaskDialog } from "./AddTaskDialog"
-import { moverTarea, guardarBaseline, limpiarBaseline, reordenarTareas } from "@/lib/gantt/actions"
+import {
+  moverTarea, guardarBaseline, limpiarBaseline, reordenarTareas, crearDependencia,
+} from "@/lib/gantt/actions"
 import { differenceInDays, startOfDay, addDays } from "date-fns"
+
+const DUR_W = 56  // debe coincidir con GanttSidebar
 
 interface Usuario { id: string; nombre: string; apellido: string }
 
@@ -61,13 +65,13 @@ export function GanttView({
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dragOverrides, setDragOverrides] = useState<Map<string, { inicio: Date; fin: Date }>>(new Map())
   const [persisting, setPersisting] = useState(false)
+  const [depDraw, setDepDraw] = useState<DepDrawState | null>(null)
 
   const bodyRef = useRef<HTMLDivElement>(null)
   const sidebarContainerRef = useRef<HTMLDivElement>(null)
   const headerInnerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  // Sync when server re-renders
   useEffect(() => { setTasks(rawTasks) }, [rawTasks])
   useEffect(() => { setDeps(rawDeps) }, [rawDeps])
 
@@ -115,10 +119,12 @@ export function GanttView({
   )
   const barByTaskId = useMemo(() => new Map(bars.map((b) => [b.taskId, b])), [bars])
   const depPaths = useMemo(() => computeDepPaths(deps, barByTaskId, criticalSet), [deps, barByTaskId, criticalSet])
-  const { level1, level2 } = useMemo(() => computeHeaderCells(timelineStart, timelineEnd, zoom, pxPerDay), [timelineStart, timelineEnd, zoom, pxPerDay])
+  const { level1, level2 } = useMemo(
+    () => computeHeaderCells(timelineStart, timelineEnd, zoom, pxPerDay),
+    [timelineStart, timelineEnd, zoom, pxPerDay]
+  )
   const stripes = useMemo(() => computeDayStripes(timelineStart, timelineEnd, pxPerDay), [timelineStart, timelineEnd, pxPerDay])
 
-  // Observe viewport height
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
@@ -128,14 +134,14 @@ export function GanttView({
     return () => ro.disconnect()
   }, [])
 
-  // Scroll to today on mount
+  // Scroll a hoy al montar
   useEffect(() => {
     const el = bodyRef.current
     if (!el) return
     const todayX = differenceInDays(startOfDay(new Date()), startOfDay(timelineStart)) * pxPerDay
     if (todayX > 0) el.scrollLeft = Math.max(0, todayX - el.clientWidth / 3)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only on mount
+  }, [])
 
   const handleScroll = useCallback(() => {
     const el = bodyRef.current
@@ -149,12 +155,22 @@ export function GanttView({
     const el = bodyRef.current
     if (!el) return
     const todayX = differenceInDays(startOfDay(new Date()), startOfDay(timelineStart)) * pxPerDay
-    el.scrollLeft = Math.max(0, todayX - el.clientWidth / 3)
+    el.scrollTo({ left: Math.max(0, todayX - el.clientWidth / 3), behavior: "smooth" })
   }, [timelineStart, pxPerDay])
 
   const handleFitToProject = useCallback(() => {
-    if (bodyRef.current) bodyRef.current.scrollLeft = 0
-  }, [])
+    const el = bodyRef.current
+    if (!el) return
+    const viewW = el.clientWidth
+    const projectDays = Math.max(differenceInDays(timelineEnd, timelineStart), 1)
+    const idealPxPerDay = viewW / projectDays
+    const zooms: ZoomLevel[] = ["quarter", "month", "week", "day"]
+    const best = zooms.reduce((prev, z) =>
+      Math.abs(ZOOM_PX_PER_DAY[z] - idealPxPerDay) < Math.abs(ZOOM_PX_PER_DAY[prev] - idealPxPerDay) ? z : prev
+    )
+    setZoom(best)
+    el.scrollTo({ left: 0, behavior: "smooth" })
+  }, [timelineStart, timelineEnd])
 
   const handleToggleCollapse = useCallback((id: string) => {
     setCollapsed((prev) => {
@@ -165,7 +181,6 @@ export function GanttView({
   }, [])
 
   const handleReorder = useCallback(async (orderedIds: string[]) => {
-    // Optimistic update: reorder local tasks array
     const idxMap = new Map(orderedIds.map((id, i) => [id, i]))
     setTasks((prev) =>
       prev
@@ -177,7 +192,42 @@ export function GanttView({
     router.refresh()
   }, [workflowId, router])
 
-  // ── Drag ─────────────────────────────────────────────────────────────────────
+  // ── Coordenadas SVG ───────────────────────────────────────────────────────────
+
+  const toSvgCoords = useCallback((clientX: number, clientY: number) => {
+    const bodyEl = bodyRef.current
+    if (!bodyEl) return { x: 0, y: 0 }
+    const rect = bodyEl.getBoundingClientRect()
+    return {
+      x: clientX - rect.left + bodyEl.scrollLeft,
+      y: clientY - rect.top + bodyEl.scrollTop,
+    }
+  }, [])
+
+  // ── Dep Draw ──────────────────────────────────────────────────────────────────
+
+  const handleDepDrawStart = useCallback((
+    taskId: string,
+    side: "left" | "right",
+    clientX: number,
+    clientY: number,
+  ) => {
+    const bar = barByTaskId.get(taskId)
+    const { x: svgX, y: svgY } = toSvgCoords(clientX, clientY)
+    const fromX = bar ? (side === "left" ? bar.x : bar.x + bar.w) : svgX
+    const fromY = bar ? bar.barY + BAR_H / 2 : svgY
+    setDepDraw({
+      fromTaskId: taskId,
+      fromSide: side,
+      fromSvgX: fromX,
+      fromSvgY: fromY,
+      curSvgX: svgX,
+      curSvgY: svgY,
+      overBarId: null,
+    })
+  }, [barByTaskId, toSvgCoords])
+
+  // ── Drag ──────────────────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback((payload: DragStartPayload) => {
     const task = tasks.find((t) => t.id === payload.taskId)
@@ -192,6 +242,15 @@ export function GanttView({
   }, [tasks])
 
   const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    // Dep-draw: actualizar cursor y barra objetivo
+    if (depDraw) {
+      const { x: svgX, y: svgY } = toSvgCoords(e.clientX, e.clientY)
+      const row = Math.floor(svgY / ROW_H)
+      const overBar = bars.find((b) => b.row === row && b.taskId !== depDraw.fromTaskId) ?? null
+      setDepDraw((prev) => prev ? { ...prev, curSvgX: svgX, curSvgY: svgY, overBarId: overBar?.taskId ?? null } : null)
+      return
+    }
+
     if (!dragState) return
     const deltaX = e.clientX - dragState.startPointerX
     const deltaDays = deltaX / pxPerDay
@@ -212,9 +271,33 @@ export function GanttView({
     }
 
     setDragOverrides(new Map([[dragState.taskId, { inicio: newInicio, fin: newFin }]]))
-  }, [dragState, pxPerDay])
+  }, [depDraw, dragState, pxPerDay, bars, toSvgCoords])
 
   const handlePointerUp = useCallback(async () => {
+    // Fin dep-draw
+    if (depDraw) {
+      const { fromTaskId, fromSide, overBarId, curSvgX } = depDraw
+      setDepDraw(null)
+
+      if (!overBarId || overBarId === fromTaskId) return
+
+      const overBar = barByTaskId.get(overBarId)
+      if (!overBar) return
+
+      const toSide = curSvgX < overBar.x + overBar.w / 2 ? "left" : "right"
+      let tipo: "FIN_A_INICIO" | "FIN_A_FIN" | "INICIO_A_INICIO" | "INICIO_A_FIN" = "FIN_A_INICIO"
+      if (fromSide === "right" && toSide === "right") tipo = "FIN_A_FIN"
+      else if (fromSide === "left" && toSide === "left") tipo = "INICIO_A_INICIO"
+      else if (fromSide === "left" && toSide === "right") tipo = "INICIO_A_FIN"
+
+      const res = await crearDependencia(workflowId, fromTaskId, overBarId, tipo)
+      if ("error" in res) { alert(res.error); return }
+      const tempId = `dep-${Date.now()}`
+      setDeps((prev) => [...prev, { id: tempId, predecesora: fromTaskId, sucesora: overBarId, tipo, lagMinutos: 0 }])
+      router.refresh()
+      return
+    }
+
     if (!dragState) return
     const override = dragOverrides.get(dragState.taskId)
     const taskId = dragState.taskId
@@ -228,13 +311,11 @@ export function GanttView({
     }
     if (persisting) return
 
-    // Snap to start of day
     const newInicio = startOfDay(override.inicio)
     const newFin = startOfDay(override.fin)
     if (newInicio.getTime() === startOfDay(dragState.originalInicio).getTime() &&
       newFin.getTime() === startOfDay(dragState.originalFin).getTime()) return
 
-    // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
         t.id === taskId ? { ...t, inicio: newInicio, fin: newFin } : t
@@ -257,7 +338,6 @@ export function GanttView({
       return
     }
 
-    // Aplicar updates del servidor (sucesores reprogramados)
     const updates = res.updates as unknown as Record<string, { inicio: string; fin: string }>
     setTasks((prev) =>
       prev.map((t) => {
@@ -266,9 +346,8 @@ export function GanttView({
         return { ...t, inicio: new Date(u.inicio), fin: new Date(u.fin) }
       })
     )
-    // Refrescar para traer CPM actualizado del servidor
     router.refresh()
-  }, [dragState, dragOverrides, persisting, workflowId, router])
+  }, [depDraw, barByTaskId, workflowId, dragState, dragOverrides, persisting, router])
 
   // ── Baseline ──────────────────────────────────────────────────────────────────
 
@@ -335,11 +414,14 @@ export function GanttView({
       <div className="flex flex-1 overflow-hidden" ref={contentRef}>
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
         <div className="flex shrink-0 flex-col" style={{ width: SIDEBAR_W }}>
+          {/* Header sidebar con columna Dur. */}
           <div
-            className="flex shrink-0 items-center border-b border-r bg-card px-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            className="flex shrink-0 items-center justify-between border-b border-r bg-card px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
             style={{ height: HEADER_H }}
           >
-            Tarea
+            <span className="flex-1 pl-1">Tarea</span>
+            <span className="pr-1 text-right" style={{ width: DUR_W }}>Dur.</span>
+            <span className="w-5" /> {/* espacio avatar */}
           </div>
           <div ref={sidebarContainerRef} className="relative flex-1 overflow-hidden border-r">
             <GanttSidebar
@@ -364,11 +446,16 @@ export function GanttView({
               <GanttHeader level1={level1} level2={level2} totalW={totalDays * pxPerDay} timelineStart={timelineStart} pxPerDay={pxPerDay} />
             </div>
           </div>
-          <div ref={bodyRef} className="flex-1 overflow-auto" onScroll={handleScroll}>
+          <div
+            ref={bodyRef}
+            className="flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-primary/50 [&::-webkit-scrollbar-thumb:hover]:bg-primary"
+            onScroll={handleScroll}
+          >
             <GanttBody
               bars={bars}
               depPaths={depPaths}
               stripes={stripes}
+              level2={level2}
               totalW={totalDays * pxPerDay}
               totalH={totalH}
               totalRows={totalRows}
@@ -380,9 +467,11 @@ export function GanttView({
               scrollTop={scrollTop}
               viewportH={viewportH}
               draggingId={dragState?.taskId ?? null}
+              depDraw={depDraw}
               onDragStart={handleDragStart}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
+              onDepDrawStart={handleDepDrawStart}
               taskDates={dragOverrides}
             />
           </div>

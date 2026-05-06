@@ -46,6 +46,7 @@ export interface GanttTask {
   asignadoApellido: string
   asignadoAvatar: string | null
   ordenGantt: number
+  duracionMin: number | null
 }
 
 export interface GanttDep {

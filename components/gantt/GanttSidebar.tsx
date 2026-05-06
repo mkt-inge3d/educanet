@@ -20,6 +20,15 @@ interface GanttSidebarProps {
 
 const BUFFER = 5
 const INDENT = 16
+const DUR_W = 56  // ancho columna duración
+
+function formatDuracion(min: number | null): string {
+  if (min === null) return "—"
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
 
 export function GanttSidebar({
   tasks,
@@ -37,7 +46,6 @@ export function GanttSidebar({
   const lastRow = Math.min(totalRows - 1, Math.ceil((scrollTop + viewportH) / ROW_H) + BUFFER)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Drag state
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropLineY, setDropLineY] = useState<number | null>(null)
   const [dropIdx, setDropIdx] = useState<number | null>(null)
@@ -68,7 +76,6 @@ export function GanttSidebar({
     const fromIdx = tasks.findIndex((t) => t.id === draggingId)
     if (fromIdx === -1) { resetDrag(); return }
 
-    // Build new ordered list by inserting dragged task at dropIdx
     const without = tasks.filter((t) => t.id !== draggingId)
     const adjustedIdx = dropIdx > fromIdx ? dropIdx - 1 : dropIdx
     const reordered = [
@@ -112,8 +119,8 @@ export function GanttSidebar({
               setDraggingId(task.id)
             }}
             className={cn(
-              "absolute left-0 right-0 flex cursor-pointer items-center gap-1 border-b px-1 text-sm",
-              task.estaEnRutaCritica && "bg-red-50/40 dark:bg-red-950/20",
+              "absolute left-0 right-0 flex cursor-pointer items-center gap-1 border-b bg-card px-1 text-sm",
+              task.estaEnRutaCritica && "bg-red-50 dark:bg-red-950/30",
               selectedTaskId === task.id && "bg-primary/10",
               isDragging && "opacity-40"
             )}
@@ -128,8 +135,10 @@ export function GanttSidebar({
               <GripVertical className="h-3.5 w-3.5" />
             </span>
 
-            {/* Indentación y caret */}
+            {/* Indentación */}
             <span style={{ width: indentPx, flexShrink: 0 }} />
+
+            {/* Caret collapse */}
             {task.hasChildren ? (
               <button
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
@@ -146,7 +155,7 @@ export function GanttSidebar({
             {/* Nombre */}
             <span
               className={cn(
-                "flex-1 truncate",
+                "min-w-0 flex-1 truncate",
                 task.hasChildren && "font-medium",
                 task.esHito && "italic text-muted-foreground"
               )}
@@ -154,6 +163,15 @@ export function GanttSidebar({
             >
               {task.esHito && "◆ "}
               {task.nombre}
+            </span>
+
+            {/* Columna duración */}
+            <span
+              className="shrink-0 text-right text-[10px] tabular-nums text-muted-foreground"
+              style={{ width: DUR_W }}
+              title="Duración estimada"
+            >
+              {formatDuracion(task.duracionMin)}
             </span>
 
             {/* Avatar */}
@@ -177,7 +195,7 @@ export function GanttSidebar({
         )
       })}
 
-      {/* Drop indicator line */}
+      {/* Línea indicadora de drop */}
       {dropLineY !== null && draggingId !== null && (
         <div
           className="pointer-events-none absolute left-0 right-0 z-10 h-0.5 bg-primary"

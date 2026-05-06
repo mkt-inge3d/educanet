@@ -44,7 +44,7 @@ export async function obtenerGanttData(workflowId: string): Promise<GanttWorkflo
         where: { parentId: null },  // top-level only — recursively join below
         select: {
           id: true,
-          catalogoTarea: { select: { nombre: true } },
+          catalogoTarea: { select: { nombre: true, tiempoMaximoMin: true } },
           nombreAdHoc: true,
           asignadoA: { select: { nombre: true, apellido: true, avatarUrl: true } },
           fechaEstimadaInicio: true,
@@ -72,7 +72,7 @@ export async function obtenerGanttData(workflowId: string): Promise<GanttWorkflo
     where: { workflowInstanciaId: workflowId },
     select: {
       id: true,
-      catalogoTarea: { select: { nombre: true } },
+      catalogoTarea: { select: { nombre: true, tiempoMaximoMin: true } },
       nombreAdHoc: true,
       asignadoA: { select: { nombre: true, apellido: true, avatarUrl: true } },
       fechaEstimadaInicio: true,
@@ -110,6 +110,7 @@ export async function obtenerGanttData(workflowId: string): Promise<GanttWorkflo
     asignadoApellido: t.asignadoA.apellido,
     asignadoAvatar: t.asignadoA.avatarUrl,
     ordenGantt: t.ordenGantt,
+    duracionMin: t.catalogoTarea?.tiempoMaximoMin ?? null,
   }))
 
   const deps: GanttDep[] = allTareas.flatMap((t) =>

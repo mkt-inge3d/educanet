@@ -2,14 +2,16 @@
 
 import {
   ROW_H, BAR_H, MILESTONE_R,
-  type BarLayout, type DayStripe, type DepPath,
+  type BarLayout, type DayStripe, type DepPath, type HeaderCell,
 } from "@/lib/gantt/layout"
 import type { CalendarioGantt } from "@/lib/gantt/types"
 import { getDateStringInTz, getMonthDayInTz } from "@/lib/gantt/businessCalendar"
 import { differenceInDays, startOfDay } from "date-fns"
+import { useRef } from "react"
 
 const BUFFER = 5
-const HANDLE_W = 6  // ancho del handle de resize
+const HANDLE_W = 6
+const DOT_R = 5  // radio de los conectores de dependencia
 
 const C = {
   barFill: "hsl(221 83% 90%)",
@@ -24,12 +26,15 @@ const C = {
   critMilestone: "hsl(0 72% 51%)",
   dep: "hsl(220 9% 55%)",
   critDep: "hsl(0 72% 51%)",
-  weekend: "hsl(220 14% 96%)",
   holiday: "hsl(45 93% 93%)",
   today: "hsl(221 83% 53%)",
   rowSep: "hsl(var(--border))",
+  colSep: "hsl(var(--border))",
   baseline: "hsl(220 9% 46%)",
   handle: "hsl(221 83% 40%)",
+  connector: "hsl(142 71% 45%)",
+  depPreview: "hsl(221 83% 53%)",
+  overBar: "hsl(142 71% 45%)",
 }
 
 function isFeriado(date: Date, cal: CalendarioGantt | null): boolean {
@@ -57,10 +62,21 @@ export interface DragStartPayload {
   originalFin: Date
 }
 
+export interface DepDrawState {
+  fromTaskId: string
+  fromSide: "left" | "right"
+  fromSvgX: number
+  fromSvgY: number
+  curSvgX: number
+  curSvgY: number
+  overBarId: string | null
+}
+
 interface GanttBodyProps {
   bars: BarLayout[]
   depPaths: DepPath[]
   stripes: DayStripe[]
+  level2: HeaderCell[]
   totalW: number
   totalH: number
   totalRows: number
@@ -72,9 +88,11 @@ interface GanttBodyProps {
   scrollTop: number
   viewportH: number
   draggingId: string | null
+  depDraw: DepDrawState | null
   onDragStart: (payload: DragStartPayload) => void
   onPointerMove: (e: React.PointerEvent<SVGSVGElement>) => void
   onPointerUp: () => void
+  onDepDrawStart: (taskId: string, side: "left" | "right", clientX: number, clientY: number) => void
   taskDates: Map<string, { inicio: Date; fin: Date }>
 }
 
@@ -82,6 +100,7 @@ export function GanttBody({
   bars,
   depPaths,
   stripes,
+  level2,
   totalW,
   totalH,
   totalRows,
@@ -93,11 +112,15 @@ export function GanttBody({
   scrollTop,
   viewportH,
   draggingId,
+  depDraw,
   onDragStart,
   onPointerMove,
   onPointerUp,
+  onDepDrawStart,
   taskDates,
 }: GanttBodyProps) {
+  const svgRef = useRef<SVGSVGElement>(null)
+
   const firstRow = Math.max(0, Math.floor(scrollTop / ROW_H) - BUFFER)
   const lastRow = Math.min(totalRows - 1, Math.ceil((scrollTop + viewportH) / ROW_H) + BUFFER)
   const visibleBars = bars.filter((b) => b.row >= firstRow && b.row <= lastRow)
@@ -105,7 +128,6 @@ export function GanttBody({
   const today = startOfDay(new Date())
   const todayX = differenceInDays(today, startOfDay(timelineStart)) * pxPerDay
 
-  // Aplicar overrides de drag a las barras
   const resolvedBars = visibleBars.map((bar) => {
     const override = taskDates.get(bar.taskId)
     if (!override) return bar
@@ -115,32 +137,76 @@ export function GanttBody({
     return { ...bar, x, w }
   })
 
+  function handleDepDrawStartCapture(e: React.PointerEvent, taskId: string, side: "left" | "right") {
+    e.stopPropagation()
+    svgRef.current?.setPointerCapture(e.pointerId)
+    onDepDrawStart(taskId, side, e.clientX, e.clientY)
+  }
+
+  // Bezier preview path para dep-draw
+  function depPreviewPath(): string {
+    if (!depDraw) return ""
+    const { fromSvgX, fromSvgY, curSvgX, curSvgY } = depDraw
+    const dx = Math.max(Math.abs(curSvgX - fromSvgX), 60)
+    const cp = dx * 0.5
+    return `M ${fromSvgX} ${fromSvgY} C ${fromSvgX + cp} ${fromSvgY} ${curSvgX - cp} ${curSvgY} ${curSvgX} ${curSvgY}`
+  }
+
+  const isDepDrawing = depDraw !== null
+
   return (
     <svg
+      ref={svgRef}
       width={totalW}
       height={totalH}
       className="block"
-      style={{ minWidth: totalW, cursor: draggingId ? "grabbing" : "default" }}
+      style={{ minWidth: totalW, cursor: isDepDrawing ? "crosshair" : draggingId ? "grabbing" : "default" }}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
+      onPointerLeave={isDepDrawing ? undefined : onPointerUp}
     >
-      {/* Background stripes */}
+      <defs>
+        <style>{`
+          @keyframes dep-dash { to { stroke-dashoffset: -20; } }
+          .dep-preview { animation: dep-dash 0.35s linear infinite; }
+        `}</style>
+        <marker id="gantt-arrow" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill={C.dep} />
+        </marker>
+        <marker id="gantt-arrow-crit" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill={C.critDep} />
+        </marker>
+        <marker id="gantt-arrow-preview" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill={C.depPreview} />
+        </marker>
+      </defs>
+
+      {/* Feriados únicamente (sin fondo especial para fines de semana) */}
       {stripes.map((s) => {
         const hol = isFeriado(s.date, calendario)
-        if (!s.isWeekend && !hol) return null
+        if (!hol) return null
         return (
           <rect
             key={s.x}
             x={s.x} y={0}
             width={s.width} height={totalH}
-            fill={hol ? C.holiday : C.weekend}
+            fill={C.holiday}
             opacity={0.65}
           />
         )
       })}
 
-      {/* Row separators */}
+      {/* Cuadrícula: líneas verticales en columnas del nivel2 */}
+      {level2.map((cell) => (
+        <line
+          key={`col-${cell.key}`}
+          x1={cell.x} y1={0}
+          x2={cell.x} y2={totalH}
+          stroke={C.colSep} strokeWidth={0.5} opacity={0.25}
+        />
+      ))}
+
+      {/* Separadores de fila */}
       {Array.from({ length: totalRows + 1 }, (_, i) => (
         <line
           key={i}
@@ -150,7 +216,7 @@ export function GanttBody({
         />
       ))}
 
-      {/* Today line */}
+      {/* Línea de hoy */}
       {todayX >= 0 && todayX <= totalW && (
         <line
           x1={todayX} y1={0}
@@ -160,17 +226,7 @@ export function GanttBody({
         />
       )}
 
-      {/* Arrow markers */}
-      <defs>
-        <marker id="gantt-arrow" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill={C.dep} />
-        </marker>
-        <marker id="gantt-arrow-crit" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill={C.critDep} />
-        </marker>
-      </defs>
-
-      {/* Dependency lines */}
+      {/* Líneas de dependencia existentes */}
       {depPaths.map((dep) => {
         const crit = showCritical && dep.isCritical
         return (
@@ -186,13 +242,14 @@ export function GanttBody({
         )
       })}
 
-      {/* Task bars */}
+      {/* Barras de tarea */}
       {resolvedBars.map((bar) => {
         const isDragging = bar.taskId === draggingId
+        const isOver = depDraw?.overBarId === bar.taskId
         if (bar.isMilestone)
           return <Milestone key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={onDragStart} />
         if (bar.hasChildren)
-          return <SummaryBar key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={onDragStart} />
+          return <SummaryBar key={bar.taskId} bar={bar} showCritical={showCritical} isDragging={isDragging} onDragStart={onDragStart} onDepDrawStart={handleDepDrawStartCapture} isOver={isOver} />
         return (
           <TaskBar
             key={bar.taskId}
@@ -200,10 +257,28 @@ export function GanttBody({
             showCritical={showCritical}
             showBaseline={showBaseline}
             isDragging={isDragging}
+            isOver={isOver}
+            isDepDrawing={isDepDrawing}
             onDragStart={onDragStart}
+            onDepDrawStart={handleDepDrawStartCapture}
           />
         )
       })}
+
+      {/* Preview de dep en proceso de creación */}
+      {depDraw && (
+        <path
+          className="dep-preview"
+          d={depPreviewPath()}
+          fill="none"
+          stroke={C.depPreview}
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.85}
+          style={{ pointerEvents: "none" }}
+          markerEnd="url(#gantt-arrow-preview)"
+        />
+      )}
     </svg>
   )
 }
@@ -211,28 +286,22 @@ export function GanttBody({
 // ── Task bar ──────────────────────────────────────────────────────────────────
 
 function TaskBar({
-  bar, showCritical, showBaseline, isDragging, onDragStart,
+  bar, showCritical, showBaseline, isDragging, isOver, isDepDrawing, onDragStart, onDepDrawStart,
 }: {
   bar: BarLayout
   showCritical: boolean
   showBaseline: boolean
   isDragging: boolean
+  isOver: boolean
+  isDepDrawing: boolean
   onDragStart: (p: DragStartPayload) => void
+  onDepDrawStart: (e: React.PointerEvent, taskId: string, side: "left" | "right") => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
   const rx = 3
   const progressW = Math.min((bar.w * bar.progress) / 100, bar.w)
   const opacity = isDragging ? 0.7 : 1
-
-  function makePayload(mode: DragMode, pointerX: number): DragStartPayload {
-    return {
-      taskId: bar.taskId,
-      mode,
-      pointerX,
-      originalInicio: new Date(), // sera reemplazado por GanttView
-      originalFin: new Date(),
-    }
-  }
+  const midY = bar.barY + BAR_H / 2
 
   return (
     <g opacity={opacity}>
@@ -243,7 +312,19 @@ function TaskBar({
           rx={rx} fill={C.baseline} opacity={0.22}
         />
       )}
-      {/* Bar background */}
+      {/* Highlight cuando es target de dep-draw */}
+      {isOver && (
+        <rect
+          x={bar.x - 2} y={bar.barY - 2}
+          width={bar.w + 4} height={BAR_H + 4}
+          rx={rx + 1}
+          fill="none"
+          stroke={C.overBar} strokeWidth={2}
+          opacity={0.8}
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+      {/* Barra fondo */}
       <rect
         x={bar.x} y={bar.barY}
         width={bar.w} height={BAR_H}
@@ -251,13 +332,14 @@ function TaskBar({
         fill={crit ? C.critFill : C.barFill}
         stroke={crit ? C.critStroke : C.barStroke}
         strokeWidth={crit ? 1.5 : 1}
-        style={{ cursor: "grab" }}
+        style={{ cursor: isDepDrawing ? "crosshair" : "grab" }}
         onPointerDown={(e) => {
+          if (isDepDrawing) return
           e.stopPropagation()
-          onDragStart({ ...makePayload("move", e.clientX), taskId: bar.taskId })
+          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
         }}
       />
-      {/* Progress fill */}
+      {/* Progreso */}
       {progressW > 0 && (
         <rect
           x={bar.x} y={bar.barY}
@@ -268,29 +350,45 @@ function TaskBar({
           style={{ pointerEvents: "none" }}
         />
       )}
-      {/* Left resize handle */}
+      {/* Handle resize izquierdo */}
       <rect
         x={bar.x} y={bar.barY}
         width={HANDLE_W} height={BAR_H}
-        rx={rx}
-        fill={C.handle} opacity={0}
-        style={{ cursor: "ew-resize" }}
+        rx={rx} fill={C.handle} opacity={0}
+        style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
+          if (isDepDrawing) return
           e.stopPropagation()
-          onDragStart({ ...makePayload("resize-left", e.clientX), taskId: bar.taskId })
+          onDragStart({ taskId: bar.taskId, mode: "resize-left", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
         }}
       />
-      {/* Right resize handle */}
+      {/* Handle resize derecho */}
       <rect
         x={bar.x + bar.w - HANDLE_W} y={bar.barY}
         width={HANDLE_W} height={BAR_H}
-        rx={rx}
-        fill={C.handle} opacity={0}
-        style={{ cursor: "ew-resize" }}
+        rx={rx} fill={C.handle} opacity={0}
+        style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
+          if (isDepDrawing) return
           e.stopPropagation()
-          onDragStart({ ...makePayload("resize-right", e.clientX), taskId: bar.taskId })
+          onDragStart({ taskId: bar.taskId, mode: "resize-right", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
         }}
+      />
+      {/* Conector izquierdo */}
+      <circle
+        cx={bar.x} cy={midY} r={DOT_R}
+        fill={C.connector} stroke="white" strokeWidth={1.5}
+        opacity={isDepDrawing ? 0.9 : 0.6}
+        style={{ cursor: "crosshair" }}
+        onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "left")}
+      />
+      {/* Conector derecho */}
+      <circle
+        cx={bar.x + bar.w} cy={midY} r={DOT_R}
+        fill={C.connector} stroke="white" strokeWidth={1.5}
+        opacity={isDepDrawing ? 0.9 : 0.6}
+        style={{ cursor: "crosshair" }}
+        onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "right")}
       />
     </g>
   )
@@ -298,28 +396,51 @@ function TaskBar({
 
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
-function SummaryBar({ bar, showCritical, isDragging, onDragStart }: {
-  bar: BarLayout; showCritical: boolean; isDragging: boolean
+function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepDrawStart }: {
+  bar: BarLayout; showCritical: boolean; isDragging: boolean; isOver: boolean
   onDragStart: (p: DragStartPayload) => void
+  onDepDrawStart: (e: React.PointerEvent, taskId: string, side: "left" | "right") => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
   const color = crit ? C.critSummary : C.summary
   const THIN = 6
   const ty = bar.barY + (BAR_H - THIN) / 2
   const ARR = 7
+  const midY = bar.barY + BAR_H / 2
 
   return (
-    <g
-      opacity={isDragging ? 0.7 : 1}
-      style={{ cursor: "grab" }}
-      onPointerDown={(e) => {
-        e.stopPropagation()
-        onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
-      }}
-    >
-      <rect x={bar.x} y={ty} width={bar.w} height={THIN} fill={color} />
-      <polygon points={`${bar.x},${ty} ${bar.x + ARR},${ty} ${bar.x},${ty + THIN + ARR}`} fill={color} />
-      <polygon points={`${bar.x + bar.w},${ty} ${bar.x + bar.w - ARR},${ty} ${bar.x + bar.w},${ty + THIN + ARR}`} fill={color} />
+    <g opacity={isDragging ? 0.7 : 1}>
+      {isOver && (
+        <rect
+          x={bar.x - 2} y={bar.barY - 2}
+          width={bar.w + 4} height={BAR_H + 4}
+          rx={3} fill="none" stroke={C.overBar} strokeWidth={2} opacity={0.8}
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+      <g
+        style={{ cursor: "grab" }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          onDragStart({ taskId: bar.taskId, mode: "move", pointerX: e.clientX, originalInicio: new Date(), originalFin: new Date() })
+        }}
+      >
+        <rect x={bar.x} y={ty} width={bar.w} height={THIN} fill={color} />
+        <polygon points={`${bar.x},${ty} ${bar.x + ARR},${ty} ${bar.x},${ty + THIN + ARR}`} fill={color} />
+        <polygon points={`${bar.x + bar.w},${ty} ${bar.x + bar.w - ARR},${ty} ${bar.x + bar.w},${ty + THIN + ARR}`} fill={color} />
+      </g>
+      <circle
+        cx={bar.x} cy={midY} r={DOT_R}
+        fill={C.connector} stroke="white" strokeWidth={1.5} opacity={0.6}
+        style={{ cursor: "crosshair" }}
+        onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "left")}
+      />
+      <circle
+        cx={bar.x + bar.w} cy={midY} r={DOT_R}
+        fill={C.connector} stroke="white" strokeWidth={1.5} opacity={0.6}
+        style={{ cursor: "crosshair" }}
+        onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "right")}
+      />
     </g>
   )
 }
