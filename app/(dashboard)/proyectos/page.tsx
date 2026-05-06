@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { CrearProyectoDialog } from "@/components/proyectos/CrearProyectoDialog"
 
 export const metadata = { title: "Mis proyectos" }
 
@@ -45,15 +46,40 @@ const ESTADO_COLOR: Record<string, string> = {
 
 export default async function ProyectosPage() {
   const user = await requireAuth()
-  const workflows = await obtenerMisWorkflows(user.id)
+
+  const [workflows, plantillas, usuarios, calendarios] = await Promise.all([
+    obtenerMisWorkflows(user.id),
+    prisma.workflowPlantilla.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, categoria: true },
+      orderBy: { nombre: "asc" },
+    }),
+    prisma.user.findMany({
+      select: { id: true, nombre: true, apellido: true },
+      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+    }),
+    prisma.calendarioLaboral.findMany({
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+  ])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Mis proyectos</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Workflows en los que tenés tareas asignadas.
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Mis proyectos</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Workflows en los que tenés tareas asignadas.
+          </p>
+        </div>
+        {plantillas.length > 0 && (
+          <CrearProyectoDialog
+            plantillas={plantillas}
+            usuarios={usuarios}
+            calendarios={calendarios}
+          />
+        )}
       </div>
 
       {workflows.length === 0 ? (

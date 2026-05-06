@@ -1,6 +1,6 @@
 "use server"
 
-import { requireRole } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { crearWorkflowDesdeTemplate } from "@/lib/tareas/workflow-generator"
 import { revalidatePath } from "next/cache"
 
@@ -13,7 +13,7 @@ export async function instanciarWorkflow(data: {
   calendarId?: string
   notas?: string
 }) {
-  await requireRole(["ADMIN", "RRHH"])
+  await requireAuth()
 
   const result = await crearWorkflowDesdeTemplate({
     plantillaId: data.plantillaId,
@@ -26,5 +26,6 @@ export async function instanciarWorkflow(data: {
   })
 
   revalidatePath("/admin/workflows")
+  revalidatePath("/proyectos")
   return { ok: true, ...result }
 }
