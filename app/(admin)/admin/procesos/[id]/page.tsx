@@ -47,7 +47,7 @@ export default async function ProcesoDetallePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requireRole(["ADMIN"])
+  await requireRole(["ADMIN", "RRHH", "TRABAJADOR"])
   const { id } = await params
   const definicion = await obtenerDefinicionProceso(id)
   if (!definicion) notFound()

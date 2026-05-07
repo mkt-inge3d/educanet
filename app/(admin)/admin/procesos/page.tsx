@@ -12,7 +12,7 @@ import { SeedProcesoWebinarButton } from "./SeedProcesoWebinarButton"
 export const metadata = { title: "Admin · Procesos BPMN" }
 
 export default async function AdminProcesosPage() {
-  await requireRole(["ADMIN"])
+  await requireRole(["ADMIN", "RRHH", "TRABAJADOR"])
 
   const definiciones = await obtenerDefinicionesProceso()
 

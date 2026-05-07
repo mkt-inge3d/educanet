@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, requireRole } from "@/lib/auth"
 import { parseBpmn, serializeBpmn } from "./bpmn-parser"
 import { WEBINAR_BPMN, WEBINAR_BPMN_NOMBRE } from "./webinar-bpmn"
 import type { BpmnParseado } from "./types"
@@ -49,7 +49,7 @@ export async function crearDefinicionProceso(params: {
 // ── Seed: crear definición del webinar si no existe ───────────────────────────
 
 export async function seedDefinicionWebinar() {
-  await requireAuth()
+  await requireRole(["ADMIN"])
 
   const existe = await prisma.definicionProceso.findFirst({
     where: { nombre: WEBINAR_BPMN_NOMBRE },
