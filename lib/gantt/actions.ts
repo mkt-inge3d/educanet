@@ -28,6 +28,7 @@ async function requireWorkflowAccess(workflowId: string) {
 
 function invalidarGantt(workflowId: string) {
   revalidatePath(`/admin/workflows/${workflowId}/gantt`)
+  revalidatePath(`/proyectos/${workflowId}/gantt`)
 }
 
 async function obtenerCalendario(workflowId: string): Promise<CalendarioGantt | null> {
