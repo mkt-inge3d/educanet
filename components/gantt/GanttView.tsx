@@ -365,7 +365,10 @@ export function GanttView({
     // Fin drag — siempre leer de los refs, nunca del estado (puede ser stale)
     const ds = dragStateRef.current
     if (!ds) return
-    const override = dragOverridesRef.current.get(ds.taskId)
+
+    // Capturar todos los overrides ANTES de limpiar los refs
+    const allOverrides = new Map(dragOverridesRef.current)
+    const override = allOverrides.get(ds.taskId)
 
     dragStateRef.current = null
     dragOverridesRef.current = new Map()
@@ -383,24 +386,25 @@ export function GanttView({
     if (newInicio.getTime() === startOfDay(ds.originalInicio).getTime() &&
       newFin.getTime() === startOfDay(ds.originalFin).getTime()) return
 
-    // Actualización optimista inmediata
+    // Aplicar nearestDay a todos los overrides (hijo + padre)
+    const roundedAll = new Map<string, { inicio: Date; fin: Date }>()
+    for (const [id, dates] of allOverrides) {
+      roundedAll.set(id, { inicio: nearestDay(dates.inicio), fin: nearestDay(dates.fin) })
+    }
+
+    // Actualización optimista: aplica tarea arrastrada Y padre simultáneamente
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === ds.taskId ? { ...t, inicio: newInicio, fin: newFin } : t
-      )
+      prev.map((t) => {
+        const u = roundedAll.get(t.id)
+        return u ? { ...t, inicio: u.inicio, fin: u.fin } : t
+      })
     )
 
     const res = await moverTarea(workflowId, ds.taskId, newInicio, newFin)
 
     if ("error" in res) {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === ds.taskId
-            ? { ...t, inicio: ds.originalInicio, fin: ds.originalFin }
-            : t
-        )
-      )
       alert(res.error)
+      router.refresh()
       return
     }
 
