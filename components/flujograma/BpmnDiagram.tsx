@@ -83,8 +83,20 @@ function flowPath(src: NodoParseado, tgt: NodoParseado): string {
   const y2 = svgY(tgt.posicion.y)
 
   if (Math.abs(y1 - y2) < 1) return `M ${x1} ${y1} H ${x2}`
-  const mx = (x1 + x2) / 2
-  return `M ${x1} ${y1} C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`
+
+  const R = 6
+  const midX = (x1 + x2) / 2
+  const dy = y2 > y1 ? 1 : -1
+
+  // Routing ortogonal ┐ con esquinas redondeadas (mismo estilo que el Gantt)
+  return [
+    `M ${x1} ${y1}`,
+    `H ${midX - R}`,
+    `Q ${midX} ${y1} ${midX} ${y1 + R * dy}`,
+    `V ${y2 - R * dy}`,
+    `Q ${midX} ${y2} ${midX + R} ${y2}`,
+    `H ${x2}`,
+  ].join(" ")
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
