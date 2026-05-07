@@ -20,6 +20,26 @@ export async function crearWorkflowWebinarV2(params: {
   await requireAuth()
 
   try {
+    // Construir mapa puesto → userId buscando usuarios del área del responsable
+    const responsable = await prisma.user.findUnique({
+      where: { id: params.responsableGeneralId },
+      select: { areaId: true },
+    })
+    const usuariosArea = responsable?.areaId
+      ? await prisma.user.findMany({
+          where: { areaId: responsable.areaId, activo: true },
+          select: { id: true, puesto: { select: { nombre: true } } },
+        })
+      : []
+    const rolToUserId = new Map<string, string>()
+    for (const u of usuariosArea) {
+      if (u.puesto && !rolToUserId.has(u.puesto.nombre)) {
+        rolToUserId.set(u.puesto.nombre, u.id)
+      }
+    }
+    const asignarA = (puestoNombre: string) =>
+      rolToUserId.get(puestoNombre) ?? params.responsableGeneralId
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workflow = await (prisma.workflowInstancia.create as any)({
       data: {
@@ -59,7 +79,7 @@ export async function crearWorkflowWebinarV2(params: {
       const created = await prisma.tareaInstancia.create({
         data: {
           workflowInstanciaId: workflow.id,
-          asignadoAId: params.responsableGeneralId,
+          asignadoAId: asignarA(padre.puestoNombre),
           nombreAdHoc: padre.nombre,
           fechaEstimadaInicio: fechaInicio,
           fechaEstimadaFin: fechaFin,
@@ -80,7 +100,7 @@ export async function crearWorkflowWebinarV2(params: {
         const createdHijo = await prisma.tareaInstancia.create({
           data: {
             workflowInstanciaId: workflow.id,
-            asignadoAId: params.responsableGeneralId,
+            asignadoAId: asignarA(hijo.puestoNombre),
             nombreAdHoc: hijo.nombre,
             fechaEstimadaInicio: hijoInicio,
             fechaEstimadaFin: hijoFin,

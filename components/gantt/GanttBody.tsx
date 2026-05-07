@@ -14,26 +14,26 @@ const HANDLE_W = 6
 const DOT_R = 5  // radio de los conectores de dependencia
 
 const C = {
-  barFill: "hsl(221 83% 90%)",
-  barStroke: "hsl(221 83% 53%)",
-  barProgress: "hsl(221 83% 53%)",
+  barFill: "hsl(265 75% 92%)",
+  barStroke: "hsl(265 75% 55%)",
+  barProgress: "hsl(265 75% 55%)",
   critFill: "hsl(0 72% 92%)",
   critStroke: "hsl(0 72% 51%)",
   critProgress: "hsl(0 72% 51%)",
-  summary: "hsl(221 83% 38%)",
+  summary: "hsl(265 75% 38%)",
   critSummary: "hsl(0 72% 40%)",
-  milestone: "hsl(221 83% 53%)",
+  milestone: "hsl(265 75% 55%)",
   critMilestone: "hsl(0 72% 51%)",
   dep: "hsl(220 9% 55%)",
   critDep: "hsl(0 72% 51%)",
   holiday: "hsl(45 93% 93%)",
-  today: "hsl(221 83% 53%)",
+  today: "hsl(265 75% 55%)",
   rowSep: "hsl(var(--border))",
   colSep: "hsl(var(--border))",
   baseline: "hsl(220 9% 46%)",
-  handle: "hsl(221 83% 40%)",
+  handle: "hsl(265 75% 42%)",
   connector: "hsl(142 71% 45%)",
-  depPreview: "hsl(221 83% 53%)",
+  depPreview: "hsl(265 75% 55%)",
   overBar: "hsl(142 71% 45%)",
 }
 
@@ -167,7 +167,7 @@ export function GanttBody({
       ref={svgRef}
       width={totalW}
       height={totalH}
-      className="block"
+      className={`block${isDepDrawing ? " dep-mode" : ""}`}
       style={{ minWidth: totalW, cursor: isDepDrawing ? "crosshair" : draggingId ? "grabbing" : "default" }}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -177,6 +177,9 @@ export function GanttBody({
         <style>{`
           @keyframes dep-dash { to { stroke-dashoffset: -20; } }
           .dep-preview { animation: dep-dash 0.35s linear infinite; }
+          .gc { opacity: 0; transition: opacity 0.12s; }
+          .gb:hover .gc { opacity: 0.8; }
+          .dep-mode .gc { opacity: 0.9; }
         `}</style>
         <marker id="gantt-arrow" markerWidth={6} markerHeight={6} refX={5} refY={3} orient="auto">
           <path d="M0,0 L6,3 L0,6 Z" fill={C.dep} />
@@ -306,18 +309,17 @@ function TaskBar({
   onDepDrawStart: (e: React.PointerEvent, taskId: string, side: "left" | "right") => void
 }) {
   const crit = showCritical && bar.isOnCriticalPath
-  const rx = 3
   const progressW = Math.min((bar.w * bar.progress) / 100, bar.w)
   const opacity = isDragging ? 0.7 : 1
   const midY = bar.barY + BAR_H / 2
 
   return (
-    <g opacity={opacity}>
+    <g className="gb" opacity={opacity}>
       {showBaseline && bar.baselineX !== undefined && bar.baselineW !== undefined && (
         <rect
           x={bar.baselineX} y={bar.barY}
           width={bar.baselineW} height={BAR_H}
-          rx={rx} fill={C.baseline} opacity={0.22}
+          rx={0} fill={C.baseline} opacity={0.22}
         />
       )}
       {/* Highlight cuando es target de dep-draw */}
@@ -325,7 +327,7 @@ function TaskBar({
         <rect
           x={bar.x - 2} y={bar.barY - 2}
           width={bar.w + 4} height={BAR_H + 4}
-          rx={rx + 1}
+          rx={0}
           fill="none"
           stroke={C.overBar} strokeWidth={2}
           opacity={0.8}
@@ -336,7 +338,7 @@ function TaskBar({
       <rect
         x={bar.x} y={bar.barY}
         width={bar.w} height={BAR_H}
-        rx={rx}
+        rx={0}
         fill={crit ? C.critFill : C.barFill}
         stroke={crit ? C.critStroke : C.barStroke}
         strokeWidth={crit ? 1.5 : 1}
@@ -351,7 +353,7 @@ function TaskBar({
         <rect
           x={bar.x} y={bar.barY}
           width={progressW} height={BAR_H}
-          rx={rx}
+          rx={0}
           fill={crit ? C.critProgress : C.barProgress}
           opacity={0.9}
           style={{ pointerEvents: "none" }}
@@ -361,7 +363,7 @@ function TaskBar({
       <rect
         x={bar.x} y={bar.barY}
         width={HANDLE_W} height={BAR_H}
-        rx={rx} fill={C.handle} opacity={0}
+        rx={0} fill={C.handle} opacity={0}
         style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
           if (isDepDrawing) return
@@ -372,7 +374,7 @@ function TaskBar({
       <rect
         x={bar.x + bar.w - HANDLE_W} y={bar.barY}
         width={HANDLE_W} height={BAR_H}
-        rx={rx} fill={C.handle} opacity={0}
+        rx={0} fill={C.handle} opacity={0}
         style={{ cursor: isDepDrawing ? "crosshair" : "ew-resize" }}
         onPointerDown={(e) => {
           if (isDepDrawing) return
@@ -381,17 +383,17 @@ function TaskBar({
       />
       {/* Conector izquierdo */}
       <circle
+        className="gc"
         cx={bar.x} cy={midY} r={DOT_R}
         fill={C.connector} stroke="white" strokeWidth={1.5}
-        opacity={isDepDrawing ? 0.9 : 0.6}
         style={{ cursor: "crosshair" }}
         onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "left")}
       />
       {/* Conector derecho */}
       <circle
+        className="gc"
         cx={bar.x + bar.w} cy={midY} r={DOT_R}
         fill={C.connector} stroke="white" strokeWidth={1.5}
-        opacity={isDepDrawing ? 0.9 : 0.6}
         style={{ cursor: "crosshair" }}
         onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "right")}
       />
@@ -417,12 +419,12 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
   const midY = bar.barY + BAR_H / 2
 
   return (
-    <g opacity={isDragging ? 0.7 : 1}>
+    <g className="gb" opacity={isDragging ? 0.7 : 1}>
       {isOver && (
         <rect
           x={bar.x - 2} y={bar.barY - 2}
           width={bar.w + 4} height={BAR_H + 4}
-          rx={2} fill="none" stroke={C.overBar} strokeWidth={2} opacity={0.8}
+          rx={0} fill="none" stroke={C.overBar} strokeWidth={2} opacity={0.8}
           style={{ pointerEvents: "none" }}
         />
       )}
@@ -433,7 +435,7 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
         }}
       >
         {/* Barra horizontal gruesa — span completo */}
-        <rect x={bar.x} y={ty} width={bar.w} height={BAR_TH} fill={color} rx={2} />
+        <rect x={bar.x} y={ty} width={bar.w} height={BAR_TH} fill={color} rx={0} />
         {/* Triángulo izquierdo: cuelga de la esquina inferior-izquierda */}
         <polygon
           points={`${bar.x},${ty + BAR_TH} ${bar.x + TRI_W},${ty + BAR_TH} ${bar.x},${ty + BAR_TH + TRI_H}`}
@@ -446,14 +448,16 @@ function SummaryBar({ bar, showCritical, isDragging, isOver, onDragStart, onDepD
         />
       </g>
       <circle
+        className="gc"
         cx={bar.x} cy={midY} r={DOT_R}
-        fill={C.connector} stroke="white" strokeWidth={1.5} opacity={0.6}
+        fill={C.connector} stroke="white" strokeWidth={1.5}
         style={{ cursor: "crosshair" }}
         onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "left")}
       />
       <circle
+        className="gc"
         cx={bar.x + bar.w} cy={midY} r={DOT_R}
-        fill={C.connector} stroke="white" strokeWidth={1.5} opacity={0.6}
+        fill={C.connector} stroke="white" strokeWidth={1.5}
         style={{ cursor: "crosshair" }}
         onPointerDown={(e) => onDepDrawStart(e, bar.taskId, "right")}
       />
@@ -492,7 +496,7 @@ function Milestone({ bar, showCritical, isDragging, onDragStart }: {
       <polygon
         points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
         fill={crit ? C.critMilestone : C.milestone}
-        stroke={crit ? "hsl(0 72% 38%)" : "hsl(221 83% 38%)"}
+        stroke={crit ? "hsl(0 72% 38%)" : "hsl(265 75% 38%)"}
         strokeWidth={1}
         style={{ pointerEvents: "none" }}
       />
