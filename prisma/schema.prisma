@@ -1127,8 +1127,9 @@ model WorkflowPlantilla {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  tareas     TareaEnWorkflow[]
-  instancias WorkflowInstancia[]
+  tareas            TareaEnWorkflow[]
+  instancias        WorkflowInstancia[]
+  definicionProceso DefinicionProceso?
 }
 
 model TareaEnWorkflow {
@@ -1167,6 +1168,7 @@ model WorkflowInstancia {
   responsableGeneral User               @relation("WorkflowsResponsable", fields: [responsableGeneralId], references: [id], onDelete: Restrict)
   calendario         CalendarioLaboral? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
   tareas             TareaInstancia[]
+  instanciaProceso   InstanciaProceso?
 
   @@index([fechaHito, estadoGeneral])
   @@index([responsableGeneralId])
@@ -1242,6 +1244,9 @@ model TareaInstancia {
   estaEnRutaCritica  Boolean  @default(false)
   version            Int      @default(1)
 
+  // Flujograma — nodo del proceso BPMN que originó esta tarea
+  nodoProcesoId      String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1255,6 +1260,8 @@ model TareaInstancia {
   hijos                 TareaInstancia[]       @relation("Subtareas")
   dependenciasComoPrece DependenciaInstancia[] @relation("DepsComoPrece")
   dependenciasComoSuces DependenciaInstancia[] @relation("DepsComoSuces")
+  nodoProceso           NodoProceso?           @relation(fields: [nodoProcesoId], references: [id], onDelete: SetNull)
+  estadoNodoProceso     EstadoNodoProceso?
 
   @@index([asignadoAId, estado])
   @@index([workflowInstanciaId, estado])
@@ -1263,6 +1270,7 @@ model TareaInstancia {
   @@index([workflowInstanciaId, ordenGantt])
   @@index([parentId])
   @@index([fechaEstimadaInicio])
+  @@index([nodoProcesoId])
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1310,6 +1318,130 @@ model DependenciaInstancia {
   @@unique([predecesora, sucesora])
   @@index([predecesora])
   @@index([sucesora])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Módulo Flujograma / Proceso (Sprint 1)
+// Vista BPMN-style del proceso por proyecto.
+// ═══════════════════════════════════════════════════════════════════
+
+enum TipoNodoBpmn {
+  EVENTO_INICIO
+  TAREA
+  GATEWAY
+  EVENTO_FIN
+}
+
+enum EstadoNodo {
+  PENDIENTE
+  ACTIVO
+  COMPLETADO
+  BLOQUEADO
+  OMITIDO
+}
+
+enum EstadoInstanciaProceso {
+  EN_CURSO
+  COMPLETADO
+  PAUSADO
+  CANCELADO
+}
+
+/// Plantilla de proceso (BPMN). Se asocia 1:1 a una WorkflowPlantilla.
+model DefinicionProceso {
+  id            String   @id @default(cuid())
+  nombre        String
+  bpmnXml       String   @db.Text
+  version       Int      @default(1)
+  plantillaId   String?  @unique
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  plantilla  WorkflowPlantilla? @relation(fields: [plantillaId], references: [id], onDelete: SetNull)
+  nodos      NodoProceso[]
+  instancias InstanciaProceso[]
+
+  @@map("definicion_proceso")
+}
+
+/// Nodo del diagrama BPMN (desnormalizado del XML para queries rápidas).
+model NodoProceso {
+  id                  String       @id @default(cuid())
+  definicionId        String
+  bpmnElementId       String       // ID dentro del XML, ej: "Task_1a2b3c"
+  nombre              String
+  tipo                TipoNodoBpmn
+  carril              String       // swimlane label, ej: "Coordinadora"
+  fase                String       // columna, ej: "pre-webinar"
+  puestoNombre        String?      // nombre del Puesto para auto-asignación
+  duracionEstimadaMin Int?
+  posicion            Json         // { x: number, y: number }
+  metadatos           Json?        // condiciones de gateway, etc.
+
+  definicion      DefinicionProceso   @relation(fields: [definicionId], references: [id], onDelete: Cascade)
+  estadosNodo     EstadoNodoProceso[]
+  tareasInstancia TareaInstancia[]
+
+  @@unique([definicionId, bpmnElementId])
+  @@index([definicionId])
+  @@map("nodo_proceso")
+}
+
+/// Ejecución viva de un proceso para un WorkflowInstancia específico.
+model InstanciaProceso {
+  id                  String                 @id @default(cuid())
+  nombre              String
+  definicionId        String
+  workflowInstanciaId String                 @unique
+  estado              EstadoInstanciaProceso @default(EN_CURSO)
+  versionDefinicion   Int
+  iniciadoEn          DateTime               @default(now())
+  completadoEn        DateTime?
+
+  definicion        DefinicionProceso   @relation(fields: [definicionId], references: [id], onDelete: Restrict)
+  workflowInstancia WorkflowInstancia   @relation(fields: [workflowInstanciaId], references: [id], onDelete: Cascade)
+  estadosNodo       EstadoNodoProceso[]
+  transiciones      TransicionProceso[]
+
+  @@index([definicionId])
+  @@map("instancia_proceso")
+}
+
+/// Estado en tiempo real de cada nodo para una instancia de proceso.
+model EstadoNodoProceso {
+  id                 String     @id @default(cuid())
+  instanciaProcesoId String
+  nodoProcesoId      String
+  estado             EstadoNodo @default(PENDIENTE)
+  tareaInstanciaId   String?    @unique
+  iniciadoEn         DateTime?
+  completadoEn       DateTime?
+  duracionRealMin    Int?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  instanciaProceso InstanciaProceso @relation(fields: [instanciaProcesoId], references: [id], onDelete: Cascade)
+  nodoProceso      NodoProceso      @relation(fields: [nodoProcesoId], references: [id], onDelete: Restrict)
+  tareaInstancia   TareaInstancia?  @relation(fields: [tareaInstanciaId], references: [id], onDelete: SetNull)
+
+  @@unique([instanciaProcesoId, nodoProcesoId])
+  @@index([instanciaProcesoId, estado])
+  @@map("estado_nodo_proceso")
+}
+
+/// Audit trail de movimientos entre nodos.
+model TransicionProceso {
+  id                 String   @id @default(cuid())
+  instanciaProcesoId String
+  desdeNodoId        String?
+  haNodoId           String?
+  timestamp          DateTime @default(now())
+  activadoPorId      String?
+
+  instanciaProceso InstanciaProceso @relation(fields: [instanciaProcesoId], references: [id], onDelete: Cascade)
+
+  @@index([instanciaProcesoId, timestamp])
+  @@map("transicion_proceso")
 }
 
 model ChecklistItemMarcado {

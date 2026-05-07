@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ListTodo,
   CalendarDays,
+  Network,
 } from "lucide-react";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ const secciones = [
       { label: "Badges", href: "/admin/badges", icon: Trophy, check: puedeGestionarBadges },
       { label: "KPIs", href: "/admin/kpis", icon: Target, check: puedeGestionarCursos },
       { label: "Catálogo de tareas", href: "/admin/catalogo-tareas", icon: ListTodo, check: puedeGestionarCursos },
+      { label: "Procesos BPMN", href: "/admin/procesos", icon: Network, check: puedeGestionarCursos },
     ],
   },
   {
