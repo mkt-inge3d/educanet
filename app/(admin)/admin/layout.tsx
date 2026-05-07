@@ -12,7 +12,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   await cookies();
-  const user = await requireRole(["ADMIN", "RRHH", "TRABAJADOR"]);
+  const user = await requireRole(["ADMIN", "RRHH"]);
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
 
   return (

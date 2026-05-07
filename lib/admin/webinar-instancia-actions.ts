@@ -117,8 +117,31 @@ export async function crearWorkflowWebinarV2(params: {
       }
     }
 
+    // Crear instancia del proceso BPMN si la definición existe
+    const defProceso = await prisma.definicionProceso.findFirst({
+      where: { nombre: "Proceso de Webinar" },
+      select: { id: true, version: true, nodos: { select: { id: true } } },
+    })
+    if (defProceso) {
+      await prisma.instanciaProceso.create({
+        data: {
+          nombre: params.nombre,
+          definicionId: defProceso.id,
+          workflowInstanciaId: workflow.id,
+          versionDefinicion: defProceso.version,
+          estadosNodo: {
+            create: defProceso.nodos.map((n) => ({
+              nodoProcesoId: n.id,
+              estado: "PENDIENTE" as const,
+            })),
+          },
+        },
+      })
+    }
+
     revalidatePath("/proyectos")
     revalidatePath("/tareas")
+    revalidatePath("/flujograma")
 
     return { workflowInstanciaId: workflow.id, tareasCreadas }
   } catch (err) {
