@@ -36,17 +36,37 @@ const svgX = (x: number) => x + ML
 const svgY = (y: number) => y + MT
 
 // ── Colors ────────────────────────────────────────────────────────────────────
+// Usamos CSS custom properties del tema para que funcione en light y dark.
 
 type C3 = [string, string, string]
 
-const STATUS_C: Record<string, C3> = {
-  PENDIENTE:  ["#f8fafc", "#94a3b8", "#64748b"],
-  ACTIVO:     ["#ede9fe", "#7c3aed", "#4c1d95"],
-  COMPLETADO: ["#dcfce7", "#16a34a", "#14532d"],
-  BLOQUEADO:  ["#fee2e2", "#dc2626", "#7f1d1d"],
-  OMITIDO:    ["#f1f5f9", "#cbd5e1", "#94a3b8"],
+const v = (token: string, alpha?: number) =>
+  alpha !== undefined
+    ? `hsl(var(${token}) / ${alpha})`
+    : `hsl(var(${token}))`
+
+// Colores estructurales del diagrama
+const S = {
+  poolBg:      v("--card"),
+  laneLabelBg: v("--muted"),
+  phaseHeaderBg: v("--background"),
+  phaseMidBg:  v("--primary", 0.05),
+  border:      v("--border"),
+  fore:        v("--foreground"),
+  mutedFore:   v("--muted-foreground"),
+  primary:     v("--primary"),
+  phaseDivider: v("--primary", 0.22),
 }
-const DEF_C: C3 = ["#f0f0ff", "#7c3aed", "#5b21b6"]
+
+// Colores de nodos por estado
+const STATUS_C: Record<string, C3> = {
+  PENDIENTE:  [v("--muted"),          v("--border"),        v("--muted-foreground")],
+  ACTIVO:     [v("--primary", 0.14),  v("--primary"),       v("--primary")],
+  COMPLETADO: [v("--success", 0.14),  v("--success"),       v("--success")],
+  BLOQUEADO:  [v("--destructive", 0.14), v("--destructive"), v("--destructive")],
+  OMITIDO:    [v("--muted"),          v("--border"),        v("--muted-foreground", 0.5)],
+}
+const DEF_C: C3 = [v("--primary", 0.08), v("--primary"), v("--primary")]
 
 function nc(e?: EstadoNodo): C3 {
   if (!e) return DEF_C
@@ -110,7 +130,7 @@ function TaskNode({ n, fill, stroke, tc }: { n: NodoParseado; fill: string; stro
       <rect
         x={cx - TW2} y={cy - TH2}
         width={TW2 * 2} height={TH2 * 2}
-        rx={4} fill={fill} stroke={stroke} strokeWidth={1.5}
+        rx={4} style={{ fill, stroke }} strokeWidth={1.5}
       />
       {lines.map((ln, i) => (
         <text
@@ -118,7 +138,7 @@ function TaskNode({ n, fill, stroke, tc }: { n: NodoParseado; fill: string; stro
           x={cx}
           y={cy - ((lines.length - 1) * lh) / 2 + i * lh}
           textAnchor="middle" dominantBaseline="middle"
-          fontSize={9.5} fill={tc} style={{ pointerEvents: "none" }}
+          fontSize={9.5} style={{ fill: tc, pointerEvents: "none" }}
         >
           {ln}
         </text>
@@ -133,12 +153,11 @@ function GatewayNode({ n, fill, stroke, tc }: { n: NodoParseado; fill: string; s
   const lbl = n.nombre.length > 14 ? n.nombre.slice(0, 13) + "…" : n.nombre
   return (
     <g>
-      <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={1.5} />
-      {/* "+" or "×" icon for parallel/exclusive gateway */}
-      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={14} fill={stroke} style={{ pointerEvents: "none" }}>
-        +
-      </text>
-      <text x={cx} y={cy + GS + 11} textAnchor="middle" fontSize={8.5} fill={tc}>{lbl}</text>
+      <polygon points={pts} style={{ fill, stroke }} strokeWidth={1.5} />
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+        fontSize={14} style={{ fill: stroke, pointerEvents: "none" }}>+</text>
+      <text x={cx} y={cy + GS + 11} textAnchor="middle"
+        fontSize={8.5} style={{ fill: tc }}>{lbl}</text>
     </g>
   )
 }
@@ -149,12 +168,11 @@ function EventNode({ n, fill, stroke, tc }: { n: NodoParseado; fill: string; str
   const lbl = n.nombre.length > 14 ? n.nombre.slice(0, 13) + "…" : n.nombre
   return (
     <g>
-      <circle cx={cx} cy={cy} r={ER} fill={fill} stroke={stroke} strokeWidth={isEnd ? 3.5 : 1.5} />
-      {isEnd && <circle cx={cx} cy={cy} r={ER - 5} fill="none" stroke={stroke} strokeWidth={1.5} />}
-      {isEnd && (
-        <circle cx={cx} cy={cy} r={ER - 9} fill={stroke} />
-      )}
-      <text x={cx} y={cy + ER + 12} textAnchor="middle" fontSize={8.5} fill={tc}>{lbl}</text>
+      <circle cx={cx} cy={cy} r={ER} style={{ fill, stroke }} strokeWidth={isEnd ? 3.5 : 1.5} />
+      {isEnd && <circle cx={cx} cy={cy} r={ER - 5} fill="none" style={{ stroke }} strokeWidth={1.5} />}
+      {isEnd && <circle cx={cx} cy={cy} r={ER - 9} style={{ fill: stroke }} />}
+      <text x={cx} y={cy + ER + 12} textAnchor="middle"
+        fontSize={8.5} style={{ fill: tc }}>{lbl}</text>
     </g>
   )
 }
@@ -233,7 +251,7 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
       {/* Canvas */}
       <div
         ref={containerRef}
-        className="w-full h-full overflow-hidden rounded-lg border bg-slate-50"
+        className="w-full h-full overflow-hidden rounded-lg border bg-background"
         style={{ cursor: dragging.current ? "grabbing" : "grab" }}
         onWheel={onWheel}
         onMouseDown={onMouseDown}
@@ -245,7 +263,8 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
           <defs>
             <marker id="bpmn-arrow" markerWidth="8" markerHeight="6"
               refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-              <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+              <polygon points="0 0, 8 3, 0 6"
+                style={{ fill: S.mutedFore }} />
             </marker>
           </defs>
 
@@ -253,7 +272,7 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
 
             {/* Pool outer border */}
             <rect x={0} y={0} width={DW} height={DH}
-              fill="white" stroke="#94a3b8" strokeWidth={1.5} rx={2} />
+              style={{ fill: S.poolBg, stroke: S.border }} strokeWidth={1.5} rx={2} />
 
             {/* Phase column backgrounds + labels */}
             {PHASES.map((ph, pi) => (
@@ -261,13 +280,14 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
                 <rect
                   x={svgX(ph.x1)} y={0}
                   width={ph.x2 - ph.x1} height={MT}
-                  fill={pi === 1 ? "#f5f3ff" : "#f8fafc"}
-                  stroke="#e2e8f0" strokeWidth={0.5}
+                  style={{ fill: pi === 1 ? S.phaseMidBg : S.phaseHeaderBg, stroke: S.border }}
+                  strokeWidth={0.5}
                 />
                 <text
                   x={svgX((ph.x1 + ph.x2) / 2)} y={MT / 2}
                   textAnchor="middle" dominantBaseline="middle"
-                  fontSize={13} fontWeight="600" fill="#374151"
+                  fontSize={13} fontWeight="600"
+                  style={{ fill: S.fore }}
                 >
                   {ph.label}
                 </text>
@@ -275,7 +295,8 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
                   <line
                     x1={svgX(ph.x2)} y1={MT}
                     x2={svgX(ph.x2)} y2={DH}
-                    stroke="#c7d2fe" strokeWidth={1} strokeDasharray="5 4"
+                    style={{ stroke: S.phaseDivider }}
+                    strokeWidth={1} strokeDasharray="5 4"
                   />
                 )}
               </g>
@@ -283,7 +304,7 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
 
             {/* Swimlane label column */}
             <rect x={0} y={MT} width={ML} height={DH - MT}
-              fill="#f8fafc" stroke="#e2e8f0" strokeWidth={1} />
+              style={{ fill: S.laneLabelBg, stroke: S.border }} strokeWidth={1} />
 
             {/* Swimlane rows */}
             {LANES.map((lane, i) => {
@@ -293,11 +314,13 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
               return (
                 <g key={lane.label}>
                   <line x1={0} y1={bot} x2={DW} y2={bot}
-                    stroke="#e2e8f0" strokeWidth={i === LANES.length - 1 ? 0 : 0.8} />
+                    style={{ stroke: S.border }}
+                    strokeWidth={i === LANES.length - 1 ? 0 : 0.8} />
                   <text
                     x={ML / 2} y={mid}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={11} fill="#64748b" fontWeight="500"
+                    fontSize={11} fontWeight="500"
+                    style={{ fill: S.mutedFore }}
                     transform={`rotate(-90,${ML / 2},${mid})`}
                   >
                     {lane.label}
@@ -316,7 +339,7 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
                   key={f.id}
                   d={flowPath(src, tgt)}
                   fill="none"
-                  stroke="#94a3b8"
+                  style={{ stroke: S.mutedFore }}
                   strokeWidth={1.5}
                   markerEnd="url(#bpmn-arrow)"
                 />
@@ -332,8 +355,8 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
               const my = svgY((src.posicion.y + tgt.posicion.y) / 2)
               return (
                 <text key={`lbl-${f.id}`} x={mx} y={my - 4}
-                  textAnchor="middle" fontSize={8} fill="#94a3b8"
-                  style={{ pointerEvents: "none" }}>
+                  textAnchor="middle" fontSize={8}
+                  style={{ fill: S.mutedFore, pointerEvents: "none" }}>
                   {f.nombre}
                 </text>
               )
