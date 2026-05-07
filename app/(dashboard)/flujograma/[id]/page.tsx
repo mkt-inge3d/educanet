@@ -10,6 +10,26 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import type { EstadoNodo } from "@prisma/client"
 
+// Palabras clave para derivar el estado de cada nodo BPMN desde TareaInstancia.nombreAdHoc.
+// Un nodo es COMPLETADO cuando TODAS las tareas que coinciden están COMPLETADA.
+// Un nodo es ACTIVO cuando ALGUNA tarea coincide con EN_PROGRESO o EN_REVISION.
+const TASK_KEYWORDS: Record<string, string[]> = {
+  task_kickoff:        ["KickOff", "Ficha Técnica"],
+  task_seo_titulo:     ["Optimización SEO del Título"],
+  task_sondeo:         ["Sondeo"],
+  task_piezas:         ["Piezas Gráficas"],
+  task_teams:          ["Teams"],
+  task_publicidad:     ["Publicidad"],
+  task_landing:        ["Landing Page"],
+  task_recordatorios:  ["Encuesta", "Certificado", "Presentación Comercial"],
+  task_webinar_vivo:   ["Día del Evento"],
+  task_edicion:        ["Video YouTube"],
+  task_email_post:     ["Mail agradecimiento"],
+  task_carga_lms:      ["Artículo Landing"],
+  task_seo_post:       ["Ficha Postwebinar"],
+  task_informe:        ["Informe de Resultados"],
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const wf = await prisma.workflowInstancia.findUnique({ where: { id }, select: { nombre: true } })
@@ -34,13 +54,11 @@ async function obtenerDatos(workflowId: string, userId: string) {
           id: true,
           estado: true,
           definicion: { select: { nombre: true, version: true, bpmnXml: true } },
-          estadosNodo: {
-            select: {
-              estado: true,
-              nodoProceso: { select: { bpmnElementId: true } },
-            },
-          },
         },
+      },
+      tareas: {
+        where: { parentId: null },
+        select: { nombreAdHoc: true, estado: true },
       },
     },
   })
@@ -67,14 +85,24 @@ export default async function FlujogramaDetallePage({
   const inst = wf.instanciaProceso
   const bpmn = parseBpmn(inst.definicion.bpmnXml)
 
-  const estados: Record<string, EstadoNodo> = {}
-  for (const en of inst.estadosNodo) {
-    estados[en.nodoProceso.bpmnElementId] = en.estado
+  // Derivar estados desde tareas (ev_inicio siempre COMPLETADO al existir la instancia)
+  const estados: Record<string, EstadoNodo> = { ev_inicio: "COMPLETADO" }
+  for (const [bpmnId, keywords] of Object.entries(TASK_KEYWORDS)) {
+    const matching = wf.tareas.filter(
+      (t) => t.nombreAdHoc && keywords.some((kw) => t.nombreAdHoc!.includes(kw))
+    )
+    if (matching.length === 0) continue
+    const allDone   = matching.every((t) => t.estado === "COMPLETADA")
+    const anyProgress = matching.some((t) =>
+      t.estado === "COMPLETADA" || t.estado === "EN_PROGRESO" || t.estado === "EN_REVISION"
+    )
+    if (allDone) estados[bpmnId] = "COMPLETADO"
+    else if (anyProgress) estados[bpmnId] = "ACTIVO"
   }
 
-  const total     = inst.estadosNodo.length
-  const completados = inst.estadosNodo.filter((e) => e.estado === "COMPLETADO").length
-  const activos    = inst.estadosNodo.filter((e) => e.estado === "ACTIVO").length
+  const total      = bpmn.nodos.filter((n) => n.tipo === "TAREA").length
+  const completados = bpmn.nodos.filter((n) => n.tipo === "TAREA" && estados[n.bpmnElementId] === "COMPLETADO").length
+  const activos    = bpmn.nodos.filter((n) => n.tipo === "TAREA" && estados[n.bpmnElementId] === "ACTIVO").length
 
   return (
     <div className="flex h-[calc(100vh-56px)] flex-col gap-4 overflow-hidden">
