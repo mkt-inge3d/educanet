@@ -128,15 +128,63 @@ export function GanttBody({
   const today = startOfDay(new Date())
   const todayX = differenceInDays(today, startOfDay(timelineStart)) * pxPerDay
 
+  // Convierte una fecha a píxeles dentro del timeline
+  function toPx(date: Date): number {
+    return (date.getTime() - startOfDay(timelineStart).getTime()) / 86_400_000 * pxPerDay
+  }
+
+  // Paso 1: resolver posición de hojas (barras sin hijos) aplicando overrides
+  const resolvedLeaf = new Map<string, { x: number; w: number }>()
+  for (const bar of visibleBars) {
+    if (bar.hasChildren) continue
+    const ov = taskDates.get(bar.taskId)
+    if (ov) {
+      const x = toPx(ov.inicio)
+      const w = Math.max(toPx(ov.fin) - x, pxPerDay)
+      resolvedLeaf.set(bar.taskId, { x, w })
+    } else {
+      resolvedLeaf.set(bar.taskId, { x: bar.x, w: bar.w })
+    }
+  }
+
+  // Paso 2: derivar posición de summary bars desde sus hijos visibles
+  const childrenOf = new Map<string, string[]>()
+  for (const bar of visibleBars) {
+    if (bar.parentId) {
+      if (!childrenOf.has(bar.parentId)) childrenOf.set(bar.parentId, [])
+      childrenOf.get(bar.parentId)!.push(bar.taskId)
+    }
+  }
+
+  const summaryCache = new Map<string, { x: number; w: number } | null>()
+  function resolveFromChildren(taskId: string): { x: number; w: number } | null {
+    if (summaryCache.has(taskId)) return summaryCache.get(taskId)!
+    const children = childrenOf.get(taskId)
+    if (!children?.length) { summaryCache.set(taskId, null); return null }
+    let minX = Infinity, maxRight = -Infinity
+    for (const childId of children) {
+      const r = resolvedLeaf.get(childId) ?? resolveFromChildren(childId)
+      if (r) { minX = Math.min(minX, r.x); maxRight = Math.max(maxRight, r.x + r.w) }
+    }
+    const result = minX === Infinity ? null : { x: minX, w: maxRight - minX }
+    summaryCache.set(taskId, result)
+    return result
+  }
+
   const resolvedBars = visibleBars.map((bar) => {
-    const override = taskDates.get(bar.taskId)
-    if (!override) return bar
-    const tlStart = startOfDay(timelineStart).getTime()
-    const msPerDay = 86_400_000
-    const x = (override.inicio.getTime() - tlStart) / msPerDay * pxPerDay
-    const x2 = (override.fin.getTime() - tlStart) / msPerDay * pxPerDay
-    const w = Math.max(x2 - x, pxPerDay)
-    return { ...bar, x, w }
+    if (bar.hasChildren) {
+      // Derivar de hijos visibles; si están colapsados, usar override o posición propia
+      const span = resolveFromChildren(bar.taskId)
+      if (span) return { ...bar, x: span.x, w: Math.max(span.w, pxPerDay) }
+      const ov = taskDates.get(bar.taskId)
+      if (ov) {
+        const x = toPx(ov.inicio)
+        return { ...bar, x, w: Math.max(toPx(ov.fin) - x, pxPerDay) }
+      }
+      return bar
+    }
+    const r = resolvedLeaf.get(bar.taskId)
+    return r ? { ...bar, x: r.x, w: r.w } : bar
   })
 
   function handleDepDrawStartCapture(e: React.PointerEvent, taskId: string, side: "left" | "right") {

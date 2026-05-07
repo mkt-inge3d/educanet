@@ -59,6 +59,7 @@ export interface GanttDep {
 
 export interface BarLayout {
   taskId: string
+  parentId: string | null
   row: number
   x: number
   w: number
@@ -136,6 +137,7 @@ export function computeBarLayouts(
 
     return {
       taskId: task.id,
+      parentId: task.parentId,
       row,
       x,
       w,
