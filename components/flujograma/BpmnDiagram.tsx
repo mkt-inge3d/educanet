@@ -261,10 +261,32 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
       >
         <svg width="100%" height="100%" style={{ userSelect: "none" }}>
           <defs>
+            <style>{`
+              .bpmn-flow-done {
+                stroke: hsl(var(--success));
+                stroke-width: 2;
+              }
+              .bpmn-flow-active {
+                stroke: hsl(var(--primary));
+                stroke-width: 2;
+                stroke-dasharray: 7 4;
+                animation: bpmn-march 0.9s linear infinite;
+              }
+              @keyframes bpmn-march {
+                to { stroke-dashoffset: -11; }
+              }
+            `}</style>
             <marker id="bpmn-arrow" markerWidth="8" markerHeight="6"
               refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-              <polygon points="0 0, 8 3, 0 6"
-                style={{ fill: S.mutedFore }} />
+              <polygon points="0 0, 8 3, 0 6" style={{ fill: S.mutedFore }} />
+            </marker>
+            <marker id="bpmn-arrow-done" markerWidth="8" markerHeight="6"
+              refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+              <polygon points="0 0, 8 3, 0 6" style={{ fill: "hsl(var(--success))" }} />
+            </marker>
+            <marker id="bpmn-arrow-active" markerWidth="8" markerHeight="6"
+              refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+              <polygon points="0 0, 8 3, 0 6" style={{ fill: "hsl(var(--primary))" }} />
             </marker>
           </defs>
 
@@ -334,14 +356,24 @@ export function BpmnDiagram({ bpmn, estados = {} }: BpmnDiagramProps) {
               const src = nodeById.get(f.origen)
               const tgt = nodeById.get(f.destino)
               if (!src || !tgt) return null
+
+              const tgtEstado = estados[tgt.bpmnElementId]
+              const isDone   = tgtEstado === "COMPLETADO"
+              const isActive = tgtEstado === "ACTIVO"
+
               return (
                 <path
                   key={f.id}
                   d={flowPath(src, tgt)}
                   fill="none"
-                  style={{ stroke: S.mutedFore }}
+                  className={isDone ? "bpmn-flow-done" : isActive ? "bpmn-flow-active" : ""}
+                  style={!isDone && !isActive ? { stroke: S.mutedFore } : undefined}
                   strokeWidth={1.5}
-                  markerEnd="url(#bpmn-arrow)"
+                  markerEnd={
+                    isDone   ? "url(#bpmn-arrow-done)"
+                    : isActive ? "url(#bpmn-arrow-active)"
+                    : "url(#bpmn-arrow)"
+                  }
                 />
               )
             })}
