@@ -4,8 +4,6 @@ import { prismaForOrg } from "@/lib/prisma-tenant";
 import { verifyHmacSignature } from "@/lib/sync/verify-signature";
 import { proyectoSyncSchema } from "@/lib/sync/schema";
 
-export const runtime = "nodejs";
-
 /**
  * POST /api/sync/from-estratega
  *
