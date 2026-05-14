@@ -6,7 +6,6 @@ import { headers } from "next/headers";
 import { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/auth-schemas";
 import { checkRateLimit, loginLimiter, registerLimiter, resetPasswordLimiter, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
-import { asignarTareasOnboarding } from "@/lib/tareas/onboarding";
 
 type ActionResult = {
   error?: string;
@@ -171,9 +170,11 @@ export async function registerAction(
         },
       });
 
-      await asignarTareasOnboarding(data.user.id, parsed.data.puestoId);
+      // Onboarding automatico desactivado: el usuario inicia con tareas vacias.
+      // Puede cargar las tareas por defecto de su puesto desde Perfil > Privacidad
+      // (boton "Cargar tareas por defecto").
     } catch {
-      // Non-fatal: user is created, onboarding tasks are optional
+      // Non-fatal: el usuario queda creado aun si el upsert falla
     }
   }
 
