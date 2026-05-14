@@ -45,6 +45,7 @@ export async function crearWorkflowDesdeTemplate(
     },
   });
   if (!plantilla) throw new Error("Plantilla de workflow no encontrada");
+  const organizationId = plantilla.organizationId;
 
   // Determinar área base
   let areaId = params.areaId;
@@ -63,6 +64,7 @@ export async function crearWorkflowDesdeTemplate(
 
   const workflow = await prisma.workflowInstancia.create({
     data: {
+      organizationId,
       plantillaId: params.plantillaId,
       nombre: params.nombre,
       contextoMarca: params.contextoMarca,
@@ -107,6 +109,7 @@ export async function crearWorkflowDesdeTemplate(
 
     await prisma.tareaInstancia.create({
       data: {
+        organizationId,
         workflowInstanciaId: workflow.id,
         catalogoTareaId: cat.id,
         asignadoAId: usuarioAsignado.id,

@@ -21,7 +21,7 @@ export async function crearSubtarea(params: {
 
   const padre = await prisma.tareaInstancia.findUnique({
     where: { id: params.parentId },
-    select: { workflowInstanciaId: true, asignadoAId: true },
+    select: { workflowInstanciaId: true, asignadoAId: true, organizationId: true },
   })
   if (!padre) return { success: false, error: "Tarea padre no encontrada" }
 
@@ -36,6 +36,7 @@ export async function crearSubtarea(params: {
 
   const subtarea = await prisma.tareaInstancia.create({
     data: {
+      organizationId: padre.organizationId,
       workflowInstanciaId: padre.workflowInstanciaId,
       asignadoAId: params.responsableId || padre.asignadoAId,
       nombreAdHoc: params.nombre,

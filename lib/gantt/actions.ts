@@ -212,8 +212,14 @@ export async function crearTareaGantt(
     _max: { ordenGantt: true },
   })
 
+  const workflowOrg = await prisma.workflowInstancia.findUniqueOrThrow({
+    where: { id: workflowId },
+    select: { organizationId: true },
+  })
+
   const tarea = await prisma.tareaInstancia.create({
     data: {
+      organizationId: workflowOrg.organizationId,
       workflowInstanciaId: workflowId,
       asignadoAId: data.asignadoAId,
       nombreAdHoc: data.nombre,

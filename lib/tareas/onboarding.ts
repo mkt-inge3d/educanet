@@ -1,71 +1,100 @@
 import { prisma } from "@/lib/prisma";
-import { addDays } from "date-fns";
 
-const TAREAS_GENERICAS = [
-  {
-    nombreAdHoc: "Completa tu perfil de usuario",
-    descripcionAdHoc:
-      "Agrega tu foto, bio y revisa que tus datos estén al día en la sección Perfil.",
-    puntosBaseAdHoc: 5,
-    tiempoEstimadoMinAdHoc: 10,
-    tiempoEstimadoMaxAdHoc: 20,
-  },
-  {
-    nombreAdHoc: "Conoce la plataforma Educanet",
-    descripcionAdHoc:
-      "Explora el dashboard, revisa tus cursos disponibles y familiarízate con el sistema.",
-    puntosBaseAdHoc: 5,
-    tiempoEstimadoMinAdHoc: 15,
-    tiempoEstimadoMaxAdHoc: 30,
-  },
-  {
-    nombreAdHoc: "Coordina tus objetivos del mes con tu jefe",
-    descripcionAdHoc:
-      "Agenda una reunión de 15 min con tu jefe para revisar los KPIs y prioridades del mes.",
-    puntosBaseAdHoc: 10,
-    tiempoEstimadoMinAdHoc: 15,
-    tiempoEstimadoMaxAdHoc: 30,
-  },
-];
-
+/**
+ * Cuando un nuevo usuario se registra, hereda las TareaInstancia de los
+ * proyectos (WorkflowInstancia) activos que corresponden a su puesto.
+ * Se crean copias de esas tareas asignadas al nuevo usuario, manteniendo
+ * el estado actual, fechas y jerarquía padre-hijo tal como el equipo las
+ * tiene en ese momento.
+ */
 export async function asignarTareasOnboarding(
   userId: string,
   puestoId: string,
 ): Promise<void> {
-  const hoy = new Date();
-  const finDefault = addDays(hoy, 7);
+  // Resolver org del usuario para filtrar referencias y asignar las nuevas
+  const userInfo = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  const organizationId = userInfo?.organizationId;
+  if (!organizationId) return; // sin org no podemos crear tareas tenant
 
-  const tareasCatalogo = await prisma.catalogoTarea.findMany({
-    where: { rolResponsableId: puestoId, activa: true },
-    orderBy: { orden: "asc" },
+  // Buscar un usuario de referencia con el mismo puesto en la misma org
+  const usuarioReferencia = await prisma.user.findFirst({
+    where: {
+      puestoId,
+      organizationId,
+      id: { not: userId },
+      activo: true,
+    },
+    select: { id: true },
   });
 
-  if (tareasCatalogo.length > 0) {
-    await prisma.tareaInstancia.createMany({
-      data: tareasCatalogo.map((tarea) => ({
-        catalogoTareaId: tarea.id,
-        asignadoAId: userId,
-        origen: "ASIGNADA_JEFE" as const,
-        fechaEstimadaInicio: hoy,
-        fechaEstimadaFin: finDefault,
-        puntosBrutos: tarea.puntosBase,
-        requiereValidacionJefe: true,
-      })),
-      skipDuplicates: true,
-    });
-    return;
+  if (!usuarioReferencia) return;
+
+  // Buscar tareas de workflows asignadas a ese usuario de referencia (misma org)
+  const tareasReferencia = await prisma.tareaInstancia.findMany({
+    where: {
+      organizationId,
+      workflowInstanciaId: { not: null },
+      asignadoAId: usuarioReferencia.id,
+    },
+    orderBy: [{ workflowInstanciaId: "asc" }, { ordenGantt: "asc" }],
+  });
+
+  if (tareasReferencia.length === 0) return;
+
+  // Primera pasada: crear todas las tareas sin parentId
+  const creadas = await Promise.all(
+    tareasReferencia.map((ref) =>
+      prisma.tareaInstancia.create({
+        data: {
+          organizationId,
+          workflowInstanciaId:    ref.workflowInstanciaId,
+          catalogoTareaId:        ref.catalogoTareaId,
+          asignadoAId:            userId,
+          origen:                 "AUTO_WORKFLOW",
+          estado:                 ref.estado,
+          negocio:                ref.negocio ?? undefined,
+          nombreAdHoc:            ref.nombreAdHoc ?? undefined,
+          descripcionAdHoc:       ref.descripcionAdHoc ?? undefined,
+          puntosBaseAdHoc:        ref.puntosBaseAdHoc ?? undefined,
+          tiempoEstimadoMinAdHoc: ref.tiempoEstimadoMinAdHoc ?? undefined,
+          tiempoEstimadoMaxAdHoc: ref.tiempoEstimadoMaxAdHoc ?? undefined,
+          fechaEstimadaInicio:    ref.fechaEstimadaInicio,
+          fechaEstimadaFin:       ref.fechaEstimadaFin,
+          puntosBrutos:           ref.puntosBrutos,
+          ordenGantt:             ref.ordenGantt,
+          duracionMinutos:        ref.duracionMinutos ?? undefined,
+          esHito:                 ref.esHito,
+          baselineInicio:         ref.baselineInicio ?? undefined,
+          baselineFin:            ref.baselineFin ?? undefined,
+          baselineDuracion:       ref.baselineDuracion ?? undefined,
+          requiereValidacionJefe: false,
+        },
+        select: { id: true },
+      })
+    )
+  );
+
+  // Construir mapa refId → nuevoId para reasignar parentId
+  const mapaIds = new Map<string, string>();
+  tareasReferencia.forEach((ref, i) => {
+    mapaIds.set(ref.id, creadas[i].id);
+  });
+
+  // Segunda pasada: asignar parentId donde corresponda
+  const conParent = tareasReferencia.filter((ref) => ref.parentId !== null);
+  if (conParent.length > 0) {
+    await Promise.all(
+      conParent.map((ref) => {
+        const nuevoParentId = mapaIds.get(ref.parentId!);
+        if (!nuevoParentId) return Promise.resolve();
+        return prisma.tareaInstancia.update({
+          where: { id: mapaIds.get(ref.id)! },
+          data: { parentId: nuevoParentId },
+        });
+      })
+    );
   }
-
-  // Fallback: generic onboarding tasks for puestos without catalog tasks
-  await prisma.tareaInstancia.createMany({
-    data: TAREAS_GENERICAS.map((t) => ({
-      asignadoAId: userId,
-      origen: "ASIGNADA_JEFE" as const,
-      fechaEstimadaInicio: hoy,
-      fechaEstimadaFin: finDefault,
-      puntosBrutos: t.puntosBaseAdHoc,
-      ...t,
-    })),
-    skipDuplicates: true,
-  });
 }

@@ -5,6 +5,11 @@ import { Prisma } from "@prisma/client";
 export const userConRelacionesInclude = {
   puesto: true,
   area: true,
+  organization: true,
+  memberships: {
+    include: { organization: true },
+    orderBy: [{ esPrincipal: "desc" as const }, { createdAt: "asc" as const }],
+  },
 } satisfies Prisma.UserInclude;
 
 export const userConStatsInclude = {

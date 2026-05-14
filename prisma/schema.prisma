@@ -14,6 +14,18 @@ enum RolUsuario {
   RRHH
 }
 
+enum RolOrg {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PlanOrg {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
 enum NivelCurso {
   BASICO
   INTERMEDIO
@@ -195,6 +207,64 @@ enum TipoNotificacion {
 
 // ─── Modelos ──────────────────────────────────────────────────────────────────
 
+// ─── Multi-tenant ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  nombre        String
+  plan          PlanOrg  @default(STARTER)
+  webhookSecret String? // si null, usa env ESTRATEGA_WEBHOOK_SECRET
+  activa        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  miembros           OrganizationMember[]
+  users              User[]
+  workflowPlantillas WorkflowPlantilla[]
+  catalogoTareas     CatalogoTarea[]
+  workflowInstancias WorkflowInstancia[]
+  tareaInstancias    TareaInstancia[]
+  origenesExternos   OrigenExterno[]
+
+  @@index([slug])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  rol            RolOrg   @default(MEMBER)
+  esPrincipal    Boolean  @default(false) // org por defecto si el user pertenece a varias
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model OrigenExterno {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  sourceApp           String // "estratega"
+  sourceProjectId     String
+  workflowInstanciaId String?  @unique
+  recibidoEn          DateTime @default(now())
+  payload             Json
+  procesadoOk         Boolean  @default(true)
+  errorMensaje        String?
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflowInstancia WorkflowInstancia? @relation(fields: [workflowInstanciaId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, sourceApp, sourceProjectId])
+  @@index([organizationId, sourceApp])
+}
+
+// ─── Usuarios y organización ──────────────────────────────────────────────────
+
 model User {
   id                String     @id @default(cuid())
   email             String     @unique
@@ -203,6 +273,10 @@ model User {
   avatarUrl         String?
   bio               String?
   rol               RolUsuario @default(TRABAJADOR)
+  // Multi-tenant: org "casa" del usuario. Las queries filtran por currentOrgId
+  // del contexto (un user puede pertenecer a varias orgs vía OrganizationMember).
+  organizationId    String?
+  currentOrgId      String? // org activa elegida desde el selector
   puestoId          String?
   areaId            String?
   fechaIngreso      DateTime?
@@ -216,6 +290,8 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
+  organization      Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  memberships       OrganizationMember[]
   puesto            Puesto?             @relation(fields: [puestoId], references: [id], onDelete: SetNull)
   area              Area?               @relation(fields: [areaId], references: [id], onDelete: SetNull)
   progresos         ProgresoLeccion[]
@@ -258,6 +334,7 @@ model User {
   @@index([email])
   @@index([areaId])
   @@index([puestoId])
+  @@index([organizationId])
 }
 
 model Area {
@@ -1059,7 +1136,8 @@ enum Negocio {
 
 model CatalogoTarea {
   id                  String           @id @default(cuid())
-  codigo              String           @unique
+  organizationId      String
+  codigo              String
   nombre              String
   descripcion         String           @db.Text
   categoria           CategoriaTarea
@@ -1077,6 +1155,7 @@ model CatalogoTarea {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   rolResponsable      Puesto                   @relation(fields: [rolResponsableId], references: [id], onDelete: Restrict)
   checklistItems      ChecklistItemPlantilla[]
   dependenciasOrigen  DependenciaTarea[]       @relation("TareaOrigen")
@@ -1084,7 +1163,8 @@ model CatalogoTarea {
   instancias          TareaInstancia[]
   enWorkflows         TareaEnWorkflow[]
 
-  @@index([categoria, activa])
+  @@unique([organizationId, codigo])
+  @@index([organizationId, categoria, activa])
   @@index([rolResponsableId])
 }
 
@@ -1118,7 +1198,8 @@ model DependenciaTarea {
 
 model WorkflowPlantilla {
   id                String            @id @default(cuid())
-  codigo            String            @unique
+  organizationId    String
+  codigo            String
   nombre            String
   descripcion       String            @db.Text
   categoria         CategoriaWorkflow
@@ -1127,9 +1208,13 @@ model WorkflowPlantilla {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tareas            TareaEnWorkflow[]
   instancias        WorkflowInstancia[]
   definicionProceso DefinicionProceso?
+
+  @@unique([organizationId, codigo])
+  @@index([organizationId, categoria, activo])
 }
 
 model TareaEnWorkflow {
@@ -1149,6 +1234,7 @@ model TareaEnWorkflow {
 
 model WorkflowInstancia {
   id                   String             @id @default(cuid())
+  organizationId       String
   plantillaId          String
   nombre               String
   contextoMarca        String?
@@ -1164,18 +1250,21 @@ model WorkflowInstancia {
   createdAt            DateTime           @default(now())
   actualizadoEn        DateTime           @updatedAt
 
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plantilla          WorkflowPlantilla  @relation(fields: [plantillaId], references: [id], onDelete: Restrict)
   responsableGeneral User               @relation("WorkflowsResponsable", fields: [responsableGeneralId], references: [id], onDelete: Restrict)
   calendario         CalendarioLaboral? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
   tareas             TareaInstancia[]
   instanciaProceso   InstanciaProceso?
+  origenExterno      OrigenExterno?
 
-  @@index([fechaHito, estadoGeneral])
+  @@index([organizationId, fechaHito, estadoGeneral])
   @@index([responsableGeneralId])
 }
 
 model TareaInstancia {
   id                  String               @id @default(cuid())
+  organizationId      String
   workflowInstanciaId String? // opcional para tareas ad-hoc
   catalogoTareaId     String? // opcional para tareas ad-hoc
   asignadoAId         String
@@ -1250,6 +1339,7 @@ model TareaInstancia {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   workflowInstancia     WorkflowInstancia?     @relation(fields: [workflowInstanciaId], references: [id], onDelete: Cascade)
   catalogoTarea         CatalogoTarea?         @relation(fields: [catalogoTareaId], references: [id], onDelete: Restrict)
   asignadoA             User                   @relation("TareasAsignadas", fields: [asignadoAId], references: [id], onDelete: Restrict)
@@ -1263,6 +1353,7 @@ model TareaInstancia {
   nodoProceso           NodoProceso?           @relation(fields: [nodoProcesoId], references: [id], onDelete: SetNull)
   estadoNodoProceso     EstadoNodoProceso?
 
+  @@index([organizationId, asignadoAId, estado])
   @@index([asignadoAId, estado])
   @@index([workflowInstanciaId, estado])
   @@index([fechaEstimadaFin, estado])

@@ -23,8 +23,12 @@ export async function crearWorkflowWebinarV2(params: {
     // Construir mapa puesto → userId buscando usuarios del área del responsable
     const responsable = await prisma.user.findUnique({
       where: { id: params.responsableGeneralId },
-      select: { areaId: true },
+      select: { areaId: true, organizationId: true },
     })
+    if (!responsable?.organizationId) {
+      return { error: "El responsable no tiene organización asignada" }
+    }
+    const organizationId = responsable.organizationId
     const usuariosArea = responsable?.areaId
       ? await prisma.user.findMany({
           where: { areaId: responsable.areaId, activo: true },
@@ -40,9 +44,9 @@ export async function crearWorkflowWebinarV2(params: {
     const asignarA = (puestoNombre: string) =>
       rolToUserId.get(puestoNombre) ?? params.responsableGeneralId
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const workflow = await (prisma.workflowInstancia.create as any)({
+    const workflow = await prisma.workflowInstancia.create({
       data: {
+        organizationId,
         plantillaId: params.plantillaId,
         nombre: params.nombre,
         negocio: params.negocio ?? null,
@@ -52,7 +56,7 @@ export async function crearWorkflowWebinarV2(params: {
         calendarId: params.calendarId ?? null,
         estadoGeneral: "ACTIVO",
       },
-    }) as { id: string }
+    })
 
     // Mapa: templateId → TareaInstancia.id real
     const idMap = new Map<string, string>()
@@ -78,6 +82,7 @@ export async function crearWorkflowWebinarV2(params: {
 
       const created = await prisma.tareaInstancia.create({
         data: {
+          organizationId,
           workflowInstanciaId: workflow.id,
           asignadoAId: asignarA(padre.puestoNombre),
           nombreAdHoc: padre.nombre,
@@ -99,6 +104,7 @@ export async function crearWorkflowWebinarV2(params: {
 
         const createdHijo = await prisma.tareaInstancia.create({
           data: {
+            organizationId,
             workflowInstanciaId: workflow.id,
             asignadoAId: asignarA(hijo.puestoNombre),
             nombreAdHoc: hijo.nombre,

@@ -562,8 +562,13 @@ export async function asignarTareaDirecta(input: {
     const fin =
       input.fechaEstimadaFin ?? addMinutes(input.fechaEstimadaInicio, tiempoMax);
 
+    if (!jefe.organizationId) {
+      return { success: false, error: "Tu cuenta no tiene organización" };
+    }
+
     const nueva = await prisma.tareaInstancia.create({
       data: {
+        organizationId: jefe.organizationId,
         asignadoAId: input.asignadoAId,
         origen: "ASIGNADA_JEFE",
         catalogoTareaId: input.catalogoTareaId ?? null,
@@ -647,8 +652,13 @@ export async function crearTareaAdHoc(input: {
     const inicio = input.fechaEstimadaInicio ?? new Date();
     const fin = addMinutes(inicio, input.tiempoEstimadoMaxAdHoc);
 
+    if (!user.organizationId) {
+      return { success: false, error: "Tu cuenta no tiene organización" };
+    }
+
     const nueva = await prisma.tareaInstancia.create({
       data: {
+        organizationId: user.organizationId,
         asignadoAId: user.id,
         origen: "AUTO_ASIGNADA",
         catalogoTareaId: null,
@@ -1130,6 +1140,7 @@ export async function duplicarTareaInstancia(
   const original = await prisma.tareaInstancia.findUnique({
     where: { id: tareaId },
     select: {
+      organizationId: true,
       catalogoTareaId: true,
       asignadoAId: true,
       workflowInstanciaId: true,
@@ -1161,6 +1172,7 @@ export async function duplicarTareaInstancia(
 
   const duplicada = await prisma.tareaInstancia.create({
     data: {
+      organizationId: original.organizationId,
       catalogoTareaId: original.catalogoTareaId,
       asignadoAId: original.asignadoAId,
       workflowInstanciaId: original.workflowInstanciaId,

@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EducanetLogo } from "@/components/shared/EducanetLogo";
+import { OrgSwitcher, type OrgOption } from "./OrgSwitcher";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -84,6 +85,8 @@ type SidebarUser = {
   email: string;
   rol?: string;
   puesto?: { nombre: string } | null;
+  orgs?: OrgOption[];
+  currentOrgId?: string | null;
 };
 
 export function DashboardSidebar({
@@ -251,6 +254,15 @@ export function DashboardSidebar({
                   Configuracion
                 </Link>
               </DropdownMenuItem>
+              {user.orgs && user.orgs.length > 1 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <OrgSwitcher
+                    orgs={user.orgs}
+                    currentOrgId={user.currentOrgId ?? null}
+                  />
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="p-0">
                 <form action="/api/auth/logout" method="POST" className="flex w-full items-center gap-2 px-2 py-1.5">

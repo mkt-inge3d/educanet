@@ -12,12 +12,25 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const sidebarCollapsed = cookieStore.get("sidebar-collapsed")?.value === "true";
 
+  const orgs = (user.memberships ?? []).map((m) => ({
+    id: m.organization.id,
+    nombre: m.organization.nombre,
+    slug: m.organization.slug,
+  }));
+  const currentOrgId =
+    user.currentOrgId ??
+    user.organizationId ??
+    orgs[0]?.id ??
+    null;
+
   const sidebarUser = {
     nombre: user.nombre,
     apellido: user.apellido,
     email: user.email,
     rol: user.rol,
     puesto: user.puesto,
+    orgs,
+    currentOrgId,
   };
 
   const headerUser = {

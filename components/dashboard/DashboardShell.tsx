@@ -12,6 +12,8 @@ type SidebarUser = {
   email: string;
   rol?: string;
   puesto?: { nombre: string } | null;
+  orgs?: { id: string; nombre: string; slug: string }[];
+  currentOrgId?: string | null;
 };
 
 type HeaderUser = SidebarUser & {
