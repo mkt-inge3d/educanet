@@ -30,7 +30,7 @@ export async function obtenerTareasUsuario(userId: string) {
         select: { id: true, estado: true },
       },
     },
-    orderBy: [{ fechaEstimadaFin: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ fechaEstimadaInicio: "asc" }, { fechaEstimadaFin: "asc" }],
   });
 }
 

@@ -12,7 +12,16 @@ async function obtenerAreasConPuestos() {
     orderBy: { nombre: "asc" },
     include: {
       puestos: {
-        where: { NOT: { nombre: { startsWith: "Jefe" } } },
+        where: {
+          id: {
+            in: [
+              "puesto-disenador",
+              "puesto-eventos",
+              "puesto-content-manager",
+              "puesto-trafficker",
+            ],
+          },
+        },
         orderBy: [{ nivel: "asc" }, { orden: "asc" }],
         select: { id: true, nombre: true, nivel: true },
       },

@@ -496,6 +496,15 @@ body::before {
   background: hsl(var(--muted-foreground) / 0.4);
 }
 
+/* Ocultar scrollbar manteniendo scroll funcional */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Gantt horizontal scrollbar — visible y con color de acento */
 .gantt-scroll {
   scrollbar-width: thin;
