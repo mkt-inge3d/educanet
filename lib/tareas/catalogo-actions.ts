@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/auth";
-import { asignarTareasOnboarding } from "./onboarding";
+import { asignarTareasOnboarding, type ResultadoOnboarding } from "./onboarding";
 
 export async function toggleEsOnboardingAction(
   id: string,
@@ -13,6 +13,17 @@ export async function toggleEsOnboardingAction(
   await prisma.catalogoTarea.update({ where: { id }, data: { esOnboarding } });
   revalidatePath("/admin/catalogo-tareas");
   return { success: true };
+}
+
+function describirError(motivo: Extract<ResultadoOnboarding, { ok: false }>["motivo"]): string {
+  switch (motivo) {
+    case "SIN_ORG":
+      return "Tu cuenta no esta vinculada a una organizacion. Contacta a tu administrador.";
+    case "CATALOGO_VACIO":
+      return "No hay tareas plantilla activas para tu puesto. Pedile a tu administrador que las cargue en el catalogo.";
+    case "SIN_REFERENCIA_NI_CATALOGO":
+      return "No encontramos un companero del mismo puesto ni tareas plantilla para copiar.";
+  }
 }
 
 export async function dispararOnboardingUsuarioAction(
@@ -34,19 +45,21 @@ export async function dispararOnboardingUsuarioAction(
     return { success: false, asignadas: 0, error: "El usuario no tiene puesto asignado" };
   }
 
-  const tareasAntes = await prisma.tareaInstancia.count({ where: { asignadoAId: userId } });
-  await asignarTareasOnboarding(userId, usuario.puestoId);
-  const tareasDespues = await prisma.tareaInstancia.count({ where: { asignadoAId: userId } });
+  const resultado = await asignarTareasOnboarding(userId, usuario.puestoId);
 
   revalidatePath(`/admin/usuarios/${userId}`);
-  return { success: true, asignadas: tareasDespues - tareasAntes };
+
+  if (!resultado.ok) {
+    return { success: false, asignadas: 0, error: describirError(resultado.motivo) };
+  }
+  return { success: true, asignadas: resultado.asignadas };
 }
 
 /**
- * Permite a un usuario autenticado cargar las tareas por defecto
- * (workflow vigente del equipo) en su propia cuenta. Pensado para
- * cuentas nuevas que se crean vacias y quieren probar el flujo.
- * Solo funciona si el usuario aun no tiene tareas asignadas.
+ * Permite a un usuario autenticado cargar las tareas por defecto en su
+ * propia cuenta. Estrategia: copiar de un companero del mismo puesto, o
+ * si no hay, instanciar desde el catalogo del puesto. Solo aplica a
+ * cuentas vacias.
  */
 export async function cargarTareasPorDefectoSelfAction(): Promise<{
   success: boolean;
@@ -71,15 +84,14 @@ export async function cargarTareasPorDefectoSelfAction(): Promise<{
     };
   }
 
-  await asignarTareasOnboarding(caller.id, caller.puestoId);
-
-  const tareasDespues = await prisma.tareaInstancia.count({
-    where: { asignadoAId: caller.id },
-  });
+  const resultado = await asignarTareasOnboarding(caller.id, caller.puestoId);
 
   revalidatePath("/tareas");
   revalidatePath("/proyectos");
   revalidatePath("/perfil");
 
-  return { success: true, asignadas: tareasDespues - tareasAntes };
+  if (!resultado.ok) {
+    return { success: false, asignadas: 0, error: describirError(resultado.motivo) };
+  }
+  return { success: true, asignadas: resultado.asignadas };
 }

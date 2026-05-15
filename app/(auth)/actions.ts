@@ -152,6 +152,24 @@ export async function registerAction(
   // Ensure puesto/area are persisted (fallback in case DB trigger failed)
   if (data.user) {
     try {
+      // Derivar organizationId desde un usuario existente del area
+      // (fallback: cualquier usuario activo con org). Sin esto la cuenta
+      // queda sin org y no puede ver catalogo de tareas ni workflows.
+      const refOrg =
+        (await prisma.user.findFirst({
+          where: {
+            areaId: parsed.data.areaId,
+            organizationId: { not: null },
+            activo: true,
+          },
+          select: { organizationId: true },
+        })) ??
+        (await prisma.user.findFirst({
+          where: { organizationId: { not: null }, activo: true },
+          select: { organizationId: true },
+        }));
+      const organizationId = refOrg?.organizationId ?? null;
+
       await prisma.user.upsert({
         where: { id: data.user.id },
         update: {
@@ -159,6 +177,7 @@ export async function registerAction(
           areaId: parsed.data.areaId,
           nombre: parsed.data.nombre,
           apellido: parsed.data.apellido,
+          ...(organizationId ? { organizationId } : {}),
         },
         create: {
           id: data.user.id,
@@ -167,12 +186,13 @@ export async function registerAction(
           apellido: parsed.data.apellido,
           puestoId: parsed.data.puestoId,
           areaId: parsed.data.areaId,
+          ...(organizationId ? { organizationId } : {}),
         },
       });
 
       // Onboarding automatico desactivado: el usuario inicia con tareas vacias.
-      // Puede cargar las tareas por defecto de su puesto desde Perfil > Privacidad
-      // (boton "Cargar tareas por defecto").
+      // Puede cargar las tareas por defecto de su puesto desde Perfil
+      // (card "Carga tu flujo de trabajo" en tab Informacion).
     } catch {
       // Non-fatal: el usuario queda creado aun si el upsert falla
     }
