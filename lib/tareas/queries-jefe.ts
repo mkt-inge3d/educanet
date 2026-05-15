@@ -33,112 +33,154 @@ export async function obtenerPanelEquipoJefe(params: {
     orderBy: { nombre: "asc" },
   });
 
-  const filas = await Promise.all(
-    miembros.map(async (m) => {
-      const proyeccion = await obtenerProyeccionMesUsuario(m.id);
+  if (miembros.length === 0) return [];
+  const ids = miembros.map((m) => m.id);
 
-      // Totales por fuente TAREAS_OPERATIVAS y COMPROMISOS (para ratio
-      // iniciativa/ejecución que se muestra al jefe).
-      const puntosPorFuenteMes = await prisma.eventoGamificacion.groupBy({
-        by: ["fuente"],
-        where: {
-          userId: m.id,
-          fuente: { in: ["TAREAS_OPERATIVAS", "COMPROMISOS"] },
-          mesPeriodo: params.mes,
-          anioPeriodo: params.anio,
-        },
-        _sum: { cantidad: true },
-      });
-      const puntosTareasOperativas =
-        puntosPorFuenteMes.find((p) => p.fuente === "TAREAS_OPERATIVAS")?._sum
-          .cantidad ?? 0;
-      const puntosCompromisos =
-        puntosPorFuenteMes.find((p) => p.fuente === "COMPROMISOS")?._sum
-          .cantidad ?? 0;
-
-      const [tareasAgg, rangoMes, adHocPorValidar, bloqueadas, vencidas] =
-        await Promise.all([
-          prisma.tareaInstancia.groupBy({
-            by: ["estado"],
-            where: {
-              OR: [{ asignadoAId: m.id }, { ejecutadaRealmenteId: m.id }],
-              fechaEstimadaFin: { gte: inicio, lte: fin },
-            },
-            _count: true,
-          }),
-          prisma.rangoMensual.findUnique({
-            where: {
-              userId_periodoMes_periodoAnio: {
-                userId: m.id,
-                periodoMes: params.mes,
-                periodoAnio: params.anio,
-              },
-            },
-          }),
-          prisma.tareaInstancia.count({
-            where: {
-              asignadoAId: m.id,
-              requiereValidacionJefe: true,
-              validadaEn: null,
-              estado: "EN_REVISION",
-            },
-          }),
-          prisma.tareaInstancia.count({
-            where: {
-              OR: [{ asignadoAId: m.id }, { ejecutadaRealmenteId: m.id }],
-              estado: "BLOQUEADA",
-            },
-          }),
-          prisma.tareaInstancia.count({
-            where: {
-              OR: [{ asignadoAId: m.id }, { ejecutadaRealmenteId: m.id }],
-              estado: "VENCIDA",
-              fechaEstimadaFin: { gte: inicio, lte: fin },
-            },
-          }),
-        ]);
-
-      const completadasCount =
-        tareasAgg.find((t) => t.estado === "COMPLETADA")?._count ?? 0;
-      const totalTareas = tareasAgg.reduce((s, t) => s + t._count, 0);
-
-      const puntosEjePrograma = proyeccion.puntosOtorgadosReales;
-
-      // Semáforo
-      let semaforo: "verde" | "amarillo" | "rojo" = "verde";
-      if (vencidas > 0 || (rangoMes?.cumplimientoKpis ?? 100) < 50) {
-        semaforo = "rojo";
-      } else if (bloqueadas > 0 || adHocPorValidar > 0) {
-        semaforo = "amarillo";
-      }
-
-      return {
-        id: m.id,
-        nombre: m.nombre,
-        apellido: m.apellido,
-        puestoNombre: m.puesto?.nombre ?? "Sin puesto",
-        avatarUrl: m.avatarUrl,
-        puntosOtorgadosReales: puntosEjePrograma,
-        topePuntos: TOPE_MENSUAL_TAREAS_OPERATIVAS,
-        puntosTareasOperativas,
-        puntosCompromisos,
-        acumuladoBruto: proyeccion.acumuladoBruto,
-        proyectadoPendiente: proyeccion.proyectadoPendiente,
-        totalProyectado: proyeccion.totalProyectado,
-        factorProrrateo: proyeccion.factor,
-        cumplimientoKpis: rangoMes?.cumplimientoKpis ?? null,
-        rangoActual: rangoMes?.rango ?? null,
-        totalTareas,
-        completadas: completadasCount,
-        bloqueadas,
-        vencidas,
-        adHocPorValidar,
-        semaforo,
-      };
+  // Batch a nivel de área — 7 queries fijas independientes del N de miembros
+  const [
+    puntosPorUserFuente,
+    rangosMes,
+    adHocsPorUser,
+    tareasMesAsignadas,
+    tareasMesEjecutadas,
+    bloqueadasAsignadas,
+    bloqueadasEjecutadas,
+  ] = await Promise.all([
+    prisma.eventoGamificacion.groupBy({
+      by: ["userId", "fuente"],
+      where: {
+        userId: { in: ids },
+        fuente: { in: ["TAREAS_OPERATIVAS", "COMPROMISOS"] },
+        mesPeriodo: params.mes,
+        anioPeriodo: params.anio,
+      },
+      _sum: { cantidad: true },
     }),
+    prisma.rangoMensual.findMany({
+      where: {
+        userId: { in: ids },
+        periodoMes: params.mes,
+        periodoAnio: params.anio,
+      },
+    }),
+    prisma.tareaInstancia.groupBy({
+      by: ["asignadoAId"],
+      where: {
+        asignadoAId: { in: ids },
+        requiereValidacionJefe: true,
+        validadaEn: null,
+        estado: "EN_REVISION",
+      },
+      _count: true,
+    }),
+    prisma.tareaInstancia.groupBy({
+      by: ["asignadoAId", "estado"],
+      where: {
+        asignadoAId: { in: ids },
+        fechaEstimadaFin: { gte: inicio, lte: fin },
+      },
+      _count: true,
+    }),
+    prisma.tareaInstancia.groupBy({
+      by: ["ejecutadaRealmenteId", "estado"],
+      where: {
+        ejecutadaRealmenteId: { in: ids },
+        fechaEstimadaFin: { gte: inicio, lte: fin },
+      },
+      _count: true,
+    }),
+    prisma.tareaInstancia.groupBy({
+      by: ["asignadoAId"],
+      where: { asignadoAId: { in: ids }, estado: "BLOQUEADA" },
+      _count: true,
+    }),
+    prisma.tareaInstancia.groupBy({
+      by: ["ejecutadaRealmenteId"],
+      where: { ejecutadaRealmenteId: { in: ids }, estado: "BLOQUEADA" },
+      _count: true,
+    }),
+  ]);
+
+  // Mapas por userId
+  const mapaPuntos = new Map<string, { tareas: number; compromisos: number }>();
+  for (const r of puntosPorUserFuente) {
+    const e = mapaPuntos.get(r.userId) ?? { tareas: 0, compromisos: 0 };
+    if (r.fuente === "TAREAS_OPERATIVAS") e.tareas += r._sum.cantidad ?? 0;
+    if (r.fuente === "COMPROMISOS") e.compromisos += r._sum.cantidad ?? 0;
+    mapaPuntos.set(r.userId, e);
+  }
+  const mapaRango = new Map(rangosMes.map((r) => [r.userId, r]));
+  const mapaAdHoc = new Map(adHocsPorUser.map((r) => [r.asignadoAId, r._count]));
+
+  type EstadoCount = { total: number; completadas: number; vencidas: number };
+  const mapaTareas = new Map<string, EstadoCount>();
+  const sumarTarea = (uid: string | null, estado: string, count: number) => {
+    if (!uid) return;
+    const e = mapaTareas.get(uid) ?? { total: 0, completadas: 0, vencidas: 0 };
+    e.total += count;
+    if (estado === "COMPLETADA") e.completadas += count;
+    if (estado === "VENCIDA") e.vencidas += count;
+    mapaTareas.set(uid, e);
+  };
+  for (const r of tareasMesAsignadas) sumarTarea(r.asignadoAId, r.estado, r._count);
+  for (const r of tareasMesEjecutadas) sumarTarea(r.ejecutadaRealmenteId, r.estado, r._count);
+
+  const mapaBloqueadas = new Map<string, number>();
+  for (const r of bloqueadasAsignadas) {
+    mapaBloqueadas.set(r.asignadoAId, (mapaBloqueadas.get(r.asignadoAId) ?? 0) + r._count);
+  }
+  for (const r of bloqueadasEjecutadas) {
+    if (!r.ejecutadaRealmenteId) continue;
+    mapaBloqueadas.set(
+      r.ejecutadaRealmenteId,
+      (mapaBloqueadas.get(r.ejecutadaRealmenteId) ?? 0) + r._count,
+    );
+  }
+
+  // Proyecciones por miembro — cacheadas individualmente, baratas en hits subsiguientes
+  const proyecciones = await Promise.all(
+    miembros.map((m) => obtenerProyeccionMesUsuario(m.id)),
   );
 
-  return filas;
+  return miembros.map((m, i) => {
+    const proyeccion = proyecciones[i];
+    const puntos = mapaPuntos.get(m.id) ?? { tareas: 0, compromisos: 0 };
+    const tareasAgg = mapaTareas.get(m.id) ?? { total: 0, completadas: 0, vencidas: 0 };
+    const rango = mapaRango.get(m.id);
+    const adHocPorValidar = mapaAdHoc.get(m.id) ?? 0;
+    const bloqueadas = mapaBloqueadas.get(m.id) ?? 0;
+
+    let semaforo: "verde" | "amarillo" | "rojo" = "verde";
+    if (tareasAgg.vencidas > 0 || (rango?.cumplimientoKpis ?? 100) < 50) {
+      semaforo = "rojo";
+    } else if (bloqueadas > 0 || adHocPorValidar > 0) {
+      semaforo = "amarillo";
+    }
+
+    return {
+      id: m.id,
+      nombre: m.nombre,
+      apellido: m.apellido,
+      puestoNombre: m.puesto?.nombre ?? "Sin puesto",
+      avatarUrl: m.avatarUrl,
+      puntosOtorgadosReales: proyeccion.puntosOtorgadosReales,
+      topePuntos: TOPE_MENSUAL_TAREAS_OPERATIVAS,
+      puntosTareasOperativas: puntos.tareas,
+      puntosCompromisos: puntos.compromisos,
+      acumuladoBruto: proyeccion.acumuladoBruto,
+      proyectadoPendiente: proyeccion.proyectadoPendiente,
+      totalProyectado: proyeccion.totalProyectado,
+      factorProrrateo: proyeccion.factor,
+      cumplimientoKpis: rango?.cumplimientoKpis ?? null,
+      rangoActual: rango?.rango ?? null,
+      totalTareas: tareasAgg.total,
+      completadas: tareasAgg.completadas,
+      bloqueadas,
+      vencidas: tareasAgg.vencidas,
+      adHocPorValidar,
+      semaforo,
+    };
+  });
 }
 
 /**
@@ -166,7 +208,7 @@ export async function obtenerTareasDeMiembro(params: {
       checklistMarcados: true,
       hijos: { select: { id: true, estado: true } },
     },
-    orderBy: { fechaEstimadaFin: "asc" },
+    orderBy: [{ fechaEstimadaInicio: "asc" }, { fechaEstimadaFin: "asc" }],
   });
 
   // Filtrar: mostrar no-completadas todas + completadas del mes corriente

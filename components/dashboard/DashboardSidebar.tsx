@@ -20,6 +20,9 @@ import {
   ClipboardCheck,
   BarChart2,
   Network,
+  FolderKanban,
+  Activity,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -59,6 +62,9 @@ const sections: { title: string; items: NavItem[] }[] = [
       { label: "Mis proyectos", href: "/proyectos", icon: BarChart2 },
       { label: "Reconocimientos", href: "/reconocimientos", icon: Heart },
       { label: "Mi equipo", href: "/mi-equipo", icon: Users, soloJefe: true },
+      { label: "Agenda del equipo", href: "/mi-equipo/agenda", icon: CalendarDays, soloJefe: true },
+      { label: "Proyectos del equipo", href: "/mi-equipo/proyectos", icon: FolderKanban, soloJefe: true },
+      { label: "Actividad del equipo", href: "/mi-equipo/actividades", icon: Activity, soloJefe: true },
       { label: "Revisar hitos", href: "/mi-equipo/validacion-kpis", icon: ClipboardCheck, soloJefe: true },
       { label: "Flujograma", href: "/flujograma", icon: Network, soloJefe: true },
       // Ocultos durante el piloto (redundantes con Mi progreso):

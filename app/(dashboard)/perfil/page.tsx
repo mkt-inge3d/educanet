@@ -11,6 +11,7 @@ import { PerfilSeguridad } from "./perfil-seguridad";
 import { PerfilNotificaciones } from "./perfil-notificaciones";
 import { PerfilPrivacidad } from "./perfil-privacidad";
 import { PerfilAvatarUpload } from "./perfil-avatar-upload";
+import { PerfilOnboardingTareas } from "./perfil-onboarding-tareas";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -23,13 +24,17 @@ async function obtenerContadoresUsuario(userId: string) {
   return Promise.all([
     prisma.userBadge.count({ where: { userId } }),
     prisma.certificado.count({ where: { userId } }),
+    prisma.tareaInstancia.count({ where: { asignadoAId: userId } }),
   ]);
 }
 
 export default async function PerfilPage() {
   const user = await requireAuth();
 
-  const [badgesCount, certCount] = await obtenerContadoresUsuario(user.id);
+  const [badgesCount, certCount, tareasCount] = await obtenerContadoresUsuario(
+    user.id,
+  );
+  const mostrarOnboarding = tareasCount === 0 && !!user.puestoId;
 
   const initials = `${user.nombre[0]}${user.apellido[0]}`.toUpperCase();
   const antiguedad = user.fechaIngreso
@@ -92,7 +97,8 @@ export default async function PerfilPage() {
           <TabsTrigger value="privacidad">Privacidad</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info" className="mt-4">
+        <TabsContent value="info" className="mt-4 space-y-4">
+          {mostrarOnboarding && <PerfilOnboardingTareas />}
           <PerfilInfoForm
             nombre={user.nombre}
             apellido={user.apellido}

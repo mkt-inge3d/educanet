@@ -3,7 +3,6 @@
 import { useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { toggleMostrarEnRanking } from "@/lib/perfil/actions";
-import { cargarTareasPorDefectoSelfAction } from "@/lib/tareas/catalogo-actions";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -13,28 +12,11 @@ export function PerfilPrivacidad({
   mostrarEnRanking: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [isLoadingDefault, startLoadingDefault] = useTransition();
 
   const handleToggle = () => {
     startTransition(async () => {
       await toggleMostrarEnRanking(!mostrarEnRanking);
       toast.success(mostrarEnRanking ? "Oculto del ranking" : "Visible en el ranking");
-    });
-  };
-
-  const handleCargarDefecto = () => {
-    if (isLoadingDefault) return;
-    const ok = window.confirm(
-      "Se cargaran las tareas por defecto del flujo de tu puesto. Esta opcion solo aplica si tu cuenta esta vacia. Continuar?"
-    );
-    if (!ok) return;
-    startLoadingDefault(async () => {
-      const res = await cargarTareasPorDefectoSelfAction();
-      if (res.success) {
-        toast.success(`${res.asignadas} tareas cargadas`);
-      } else {
-        toast.error(res.error ?? "No se pudieron cargar las tareas");
-      }
     });
   };
 
@@ -70,16 +52,6 @@ export function PerfilPrivacidad({
               mostrarEnRanking ? "translate-x-5" : "translate-x-1"
             }`}
           />
-        </button>
-      </div>
-
-      <div className="pt-2 border-t border-border/40">
-        <button
-          onClick={handleCargarDefecto}
-          disabled={isLoadingDefault}
-          className="text-[11px] text-muted-foreground/70 hover:text-muted-foreground hover:underline transition-colors disabled:opacity-50"
-        >
-          {isLoadingDefault ? "Cargando..." : "Cargar tareas por defecto"}
         </button>
       </div>
     </Card>

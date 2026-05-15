@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
     // Turbopack filesystem cache: stores compiler artifacts on disk between
     // dev restarts for faster cold starts on large repos.
     turbopackFileSystemCacheForDev: true,
+    // Tree-shaking agresivo de paquetes con muchas re-exportaciones.
+    optimizePackageImports: ["lucide-react", "framer-motion", "date-fns"],
   },
 
   images: {
