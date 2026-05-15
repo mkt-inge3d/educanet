@@ -9,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsuarioInfoForm } from "./usuario-info-form";
 import { UsuarioGamificacion } from "./usuario-gamificacion";
 import { BotonOnboarding } from "./BotonOnboarding";
+import { BotonDesactivarUsuario } from "@/components/equipo/BotonDesactivarUsuario";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth";
 
 export const metadata = { title: "Admin - Detalle de usuario" };
 
@@ -55,12 +57,14 @@ export default async function AdminUsuarioDetallePage({
 }) {
   const { id } = await params;
   await requireRole(["ADMIN", "RRHH"]);
+  const caller = await getCurrentUser();
 
   const datos = await obtenerDatosUsuarioAdmin(id);
   if (!datos) notFound();
 
   const { usuario, areas, puestos, badges, userBadges, transacciones } = datos;
   const initials = `${usuario.nombre[0]}${usuario.apellido[0]}`.toUpperCase();
+  const esYoMismo = caller?.id === usuario.id;
 
   return (
     <div className="space-y-6">
@@ -84,8 +88,15 @@ export default async function AdminUsuarioDetallePage({
             <Badge variant="outline">{usuario.activo ? "Activo" : "Inactivo"}</Badge>
             {usuario.puesto && <Badge variant="outline">{usuario.puesto.nombre}</Badge>}
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <BotonOnboarding userId={usuario.id} />
+            {!esYoMismo && (
+              <BotonDesactivarUsuario
+                userId={usuario.id}
+                userNombre={`${usuario.nombre} ${usuario.apellido}`}
+                activo={usuario.activo}
+              />
+            )}
           </div>
         </div>
         <div className="text-right text-sm">

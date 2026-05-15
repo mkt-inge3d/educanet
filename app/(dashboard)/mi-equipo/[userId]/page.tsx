@@ -17,6 +17,7 @@ import { PanelAdHocsValidacion } from "@/components/tareas/jefe/PanelAdHocsValid
 import { ModalAsignarTarea } from "@/components/tareas/jefe/ModalAsignarTarea";
 import { VelocimetroMini } from "@/components/tareas/jefe/VelocimetroMini";
 import { BotonOnboarding } from "@/app/(admin)/admin/usuarios/[id]/BotonOnboarding";
+import { BotonDesactivarUsuario } from "@/components/equipo/BotonDesactivarUsuario";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata = { title: "Tareas del miembro" };
@@ -62,13 +63,20 @@ export default async function MiembroDetallePage({
             {miembro.area?.nombre ? ` · ${miembro.area.nombre}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <BotonOnboarding userId={miembro.id} />
           <ModalAsignarTarea
             asignadoAId={miembro.id}
             asignadoANombre={`${miembro.nombre} ${miembro.apellido}`}
             catalogoAsignable={catalogoAsignable}
           />
+          {jefe.id !== miembro.id && (
+            <BotonDesactivarUsuario
+              userId={miembro.id}
+              userNombre={`${miembro.nombre} ${miembro.apellido}`}
+              activo={miembro.activo}
+            />
+          )}
         </div>
       </header>
 
